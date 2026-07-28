@@ -1024,6 +1024,8 @@ function Overview({ project, onReject }) {
                 ) : null}
             </Section>
 
+
+
             {media?.documents?.length ? (
                 <Section title="Documents">
                     {media.documents.map((document, index) => (
@@ -1039,6 +1041,8 @@ function Overview({ project, onReject }) {
         </View>
     );
 }
+
+
 
 function FollowUpCard({ item, projectName, onDone }) {
     const tone = followUpToneStyles[item.tone] ?? followUpToneStyles.warning;

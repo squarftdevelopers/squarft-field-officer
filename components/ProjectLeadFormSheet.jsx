@@ -16,6 +16,7 @@ import {
     Animated,
     Dimensions,
     Image,
+    Modal,
     PanResponder,
     Platform,
     Pressable,
@@ -32,7 +33,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch } from "react-redux";
 import { addProject } from "../store/slices/projectsSlice";
 import { fetchDashboard } from "../store/slices/dashboardSlice";
-import { leadsAPI } from "../services/api";
+import { leadsAPI, projectMembersAPI } from "../services/api";
 
 const { width } = Dimensions.get("window");
 
@@ -472,6 +473,38 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
     const dispatch = useDispatch();
     const [currentStep, setCurrentStep] = useState(0);
     const [saving, setSaving] = useState(false);
+    const [searchModalVisible, setSearchModalVisible] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [searching, setSearching] = useState(false);
+
+    const handleSearchDeveloper = async (text) => {
+        setSearchQuery(text);
+        if (!text.trim()) {
+            setSearchResults([]);
+            return;
+        }
+        try {
+            setSearching(true);
+            const res = await projectMembersAPI.getAssignableUsers("project_developer", text);
+            setSearchResults(res.data?.data || []);
+        } catch (err) {
+            console.log("Error searching users:", err?.response?.data || err.message);
+        } finally {
+            setSearching(false);
+        }
+    };
+
+    const handleSelectDeveloper = (user) => {
+        setForm((prev) => ({
+            ...prev,
+            contactPerson: `${user.first_name} ${user.last_name || ""}`.trim(),
+            mobile: (user.phone || "").replace(/^\+91/, ""),
+        }));
+        setSearchModalVisible(false);
+        setSearchQuery("");
+        setSearchResults([]);
+    };
     const scrollRef = useRef(null);
     const [form, setForm] = useState(resetLeadForm);
     const [category, setCategory] = useState("Residential");
@@ -519,6 +552,23 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
             }),
         []
     );
+
+    const [inlineSuggestions, setInlineSuggestions] = useState([]);
+
+    const handlePhoneChange = async (val) => {
+        setField("mobile")(val);
+        const digits = val.replace(/\D/g, "");
+        if (digits.length < 3) {
+            setInlineSuggestions([]);
+            return;
+        }
+        try {
+            const res = await projectMembersAPI.getAssignableUsers("project_developer", digits);
+            setInlineSuggestions(res.data?.data || []);
+        } catch (err) {
+            console.log("Error querying inline suggestions:", err.message);
+        }
+    };
 
     const setField = (field) => (value) => {
         setForm((current) => ({ ...current, [field]: value }));
@@ -1006,13 +1056,19 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
     if (!visible) return null;
 
     return (
-        <Animated.View
-            className="absolute inset-0 z-50 bg-[#F8F9FE]"
-            style={{
-                transform: [{ translateY }],
-                minHeight: screenHeight,
-            }}
+        <Modal
+            visible={visible}
+            animationType="none"
+            transparent={true}
+            onRequestClose={handleClose}
         >
+            <Animated.View
+                className="absolute inset-0 z-50 bg-[#F8F9FE]"
+                style={{
+                    transform: [{ translateY }],
+                    minHeight: screenHeight,
+                }}
+            >
             <StatusBar barStyle="light-content" />
             <View className="flex-1">
                 <SafeAreaView className="bg-[#4A43EC]" edges={["top"]}>
@@ -1122,23 +1178,72 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
                                 containerClassName="mb-4"
                             />
 
-                            <Field
-                                label="Contact Person"
-                                placeholder="Name"
-                                value={form.contactPerson}
-                                onChangeText={setField("contactPerson")}
-                                containerClassName="mb-4"
-                            />
+                            <View className="mb-4">
+                                <View className="flex-row justify-between items-center mb-1.5">
+                                    <Text className="text-xs font-lato-bold text-black">Contact Person</Text>
+                                    <TouchableOpacity
+                                        onPress={() => setSearchModalVisible(true)}
+                                        activeOpacity={0.7}
+                                        className="flex-row items-center"
+                                    >
+                                        <Ionicons name="search" size={11} color="#4A43EC" style={{ marginRight: 2 }} />
+                                        <Text className="text-[11px] font-lato-bold text-[#4A43EC]">Select Existing Developer</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <View className="h-12 justify-center rounded-xl border border-gray-200 bg-white px-4">
+                                    <TextInput
+                                        value={form.contactPerson}
+                                        onChangeText={setField("contactPerson")}
+                                        placeholder="Name"
+                                        placeholderTextColor="#9CA3AF"
+                                        className="text-[13px] font-lato text-gray-800"
+                                        style={{ paddingVertical: 0, textAlignVertical: "center", includeFontPadding: false }}
+                                    />
+                                </View>
+                            </View>
 
-                            <View className="mb-4 flex-row" style={{ columnGap: 10 }}>
-                                <Field
-                                    label="Mobile *"
-                                    placeholder="+91 98765 43210"
-                                    value={form.mobile}
-                                    onChangeText={setField("mobile")}
-                                    keyboardType="phone-pad"
-                                    containerClassName="flex-1"
-                                />
+                            <View className="mb-4">
+                                <Text className="mb-1.5 text-xs font-lato-bold text-black">Mobile *</Text>
+                                <View className="h-12 justify-center rounded-xl border border-gray-200 bg-white px-4">
+                                    <TextInput
+                                        value={form.mobile}
+                                        onChangeText={handlePhoneChange}
+                                        placeholder="+91 98765 43210"
+                                        placeholderTextColor="#9CA3AF"
+                                        keyboardType="phone-pad"
+                                        className="text-[13px] font-lato text-gray-800"
+                                        style={{ paddingVertical: 0, textAlignVertical: "center", includeFontPadding: false }}
+                                    />
+                                </View>
+
+                                {inlineSuggestions.length > 0 && (
+                                    <View className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl mt-2 p-2 gap-2">
+                                        <Text className="text-[10px] font-lato-bold text-[#64748B] px-1">Found existing developer(s):</Text>
+                                        {inlineSuggestions.map((user) => (
+                                            <TouchableOpacity
+                                                key={user.id}
+                                                activeOpacity={0.7}
+                                                onPress={() => {
+                                                    setForm((prev) => ({
+                                                        ...prev,
+                                                        contactPerson: `${user.first_name} ${user.last_name || ""}`.trim(),
+                                                        mobile: (user.phone || "").replace(/^\+91/, ""),
+                                                    }));
+                                                    setInlineSuggestions([]);
+                                                }}
+                                                className="flex-row justify-between items-center bg-white border border-[#E2E8F0] rounded-lg p-2.5"
+                                            >
+                                                <View className="flex-1 mr-2">
+                                                    <Text className="text-[12px] font-lato-bold text-black">{user.first_name} {user.last_name || ""}</Text>
+                                                    <Text className="text-[10px] text-[#64748B] mt-0.5">{user.phone}</Text>
+                                                </View>
+                                                <View className="bg-[#4A43EC]/10 px-2 py-1 rounded">
+                                                    <Text className="text-[10px] font-lato-bold text-[#4A43EC]">Use</Text>
+                                                </View>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                )}
                             </View>
 
                             {/* Selected property types list */}
@@ -1678,6 +1783,96 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
                     </KeyboardAwareScrollView>
                 </View>
             </View>
+
+            <Modal
+                visible={searchModalVisible}
+                animationType="slide"
+                onRequestClose={() => setSearchModalVisible(false)}
+            >
+                <SafeAreaView className="flex-1 bg-white">
+                    <View className="flex-row items-center justify-between px-4 py-3 border-b border-[#F1F5F9]">
+                        <Text className="text-[16px] font-lato-bold text-[#111827]">Select Project Developer</Text>
+                        <TouchableOpacity
+                            activeOpacity={0.75}
+                            onPress={() => {
+                                setSearchModalVisible(false);
+                                setSearchQuery("");
+                                setSearchResults([]);
+                            }}
+                            className="p-1"
+                        >
+                            <Ionicons name="close" size={20} color="#64748B" />
+                        </TouchableOpacity>
+                    </View>
+
+                    <View className="px-4 py-3 bg-[#F8FAFC]">
+                        <View className="h-10 flex-row items-center rounded-[10px] border border-[#E2E8F0] bg-white px-3">
+                            <Ionicons name="search-outline" size={15} color="#8A94A6" />
+                            <TextInput
+                                value={searchQuery}
+                                onChangeText={handleSearchDeveloper}
+                                placeholder="Search by name, email or phone..."
+                                placeholderTextColor="#9CA3AF"
+                                className="ml-2 flex-1 text-[12px] text-[#111827]"
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                            />
+                            {searchQuery ? (
+                                <TouchableOpacity activeOpacity={0.75} onPress={() => handleSearchDeveloper("")}>
+                                    <Ionicons name="close-circle" size={15} color="#9CA3AF" />
+                                </TouchableOpacity>
+                            ) : null}
+                        </View>
+                    </View>
+
+                    <ScrollView
+                        className="flex-1 px-4"
+                        contentContainerStyle={{ paddingTop: 10, paddingBottom: 20 }}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {searching ? (
+                            <View className="py-8 items-center">
+                                <ActivityIndicator size="small" color="#4A43EC" />
+                            </View>
+                        ) : searchQuery && searchResults.length === 0 ? (
+                            <View className="py-8 items-center">
+                                <Text className="text-[12px] text-[#64748B]">No project developers found</Text>
+                            </View>
+                        ) : !searchQuery ? (
+                            <View className="py-8 items-center">
+                                <Text className="text-[12px] text-[#94A3B8]">Type to search for active project developers</Text>
+                            </View>
+                        ) : (
+                            searchResults.map((user) => (
+                                <TouchableOpacity
+                                    key={user.id}
+                                    activeOpacity={0.7}
+                                    onPress={() => handleSelectDeveloper(user)}
+                                    className="flex-row items-center justify-between border-b border-[#F1F5F9] py-3"
+                                >
+                                    <View className="flex-1 mr-3">
+                                        <Text className="text-[13px] font-lato-bold text-[#111827]">
+                                            {user.first_name} {user.last_name || ""}
+                                        </Text>
+                                        {user.company_name && (
+                                            <Text className="text-[10px] text-[#64748B] mt-0.5">
+                                                Company: {user.company_name}
+                                            </Text>
+                                        )}
+                                        <Text className="text-[10px] text-[#94A3B8] mt-0.5">
+                                            {user.email || user.phone}
+                                        </Text>
+                                    </View>
+                                    <View className="h-7 items-center justify-center rounded-[6px] bg-[#4A43EC]/10 px-3">
+                                        <Text className="text-[10px] font-lato-bold text-[#4A43EC]">Select</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            ))
+                        )}
+                    </ScrollView>
+                </SafeAreaView>
+            </Modal>
         </Animated.View>
+        </Modal>
     );
 }

@@ -258,6 +258,17 @@ export const projectFormApi = {
     api.get('/api/v1/project-panel/form/drafts'),
 };
 
+export const projectMembersAPI = {
+  getAssignableUsers: (role, q) =>
+    api.get('/api/v1/project-panel/projects/assignable-users', { params: { role, q } }),
+  getMembers: (projectId) =>
+    api.get(`/api/v1/project-panel/projects/${projectId}/members`),
+  addMember: (projectId, userId) =>
+    api.post(`/api/v1/project-panel/projects/${projectId}/members`, { user_id: userId }),
+  removeMember: (projectId, userId) =>
+    api.delete(`/api/v1/project-panel/projects/${projectId}/members/${userId}`),
+};
+
 export const kycAPI = {
   uploadKyc: async (formData) => {
     const { data } = await api.post('/api/v1/field-officer/kyc', formData, {
