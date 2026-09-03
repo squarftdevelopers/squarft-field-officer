@@ -27,7 +27,6 @@ import {
     selectProjects,
 } from "../../store/slices/projectsSlice";
 
-const profileImage = require("../../assets/images/profile-officer.png");
 const POLL_INTERVAL = 30000; // 30 seconds
 
 const followUpToneStyles = {
@@ -40,6 +39,30 @@ const meetingToneStyles = {
     primary: { accent: "#4A43EC", badgeBg: "#F1EFFF", badgeText: "#4A43EC" },
     success: { accent: "#16A34A", badgeBg: "#DCFCE7", badgeText: "#16A34A" },
 };
+
+function HeaderAvatar({ uri, name }) {
+    const [failedUri, setFailedUri] = useState(null);
+
+    if (uri && failedUri !== uri) {
+        return (
+            <Image
+                source={{ uri }}
+                onError={() => setFailedUri(uri)}
+                className="h-12 w-12"
+                resizeMode="cover"
+            />
+        );
+    }
+
+    const initials = (name || "Field Officer")
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join("") || "FO";
+
+    return <Text className="text-[15px] font-lato-bold text-[#4A43EC]">{initials}</Text>;
+}
 
 // Shimmer skeleton component
 function Skeleton({ width, height, borderRadius = 8, style, color = "#E2E8F0" }) {
@@ -295,11 +318,7 @@ export default function Home() {
                         <View className="flex-row items-center justify-between">
                             <View className="flex-row items-center">
                                 <View className="h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-white">
-                                    <Image
-                                        source={profile?.avatar_url ? { uri: profile.avatar_url } : profileImage}
-                                        className="h-12 w-12"
-                                        resizeMode="cover"
-                                    />
+                                    <HeaderAvatar uri={profile?.avatar_url} name={profile?.name} />
                                 </View>
                                 <View className="ml-2.5">
                                     <View className="flex-row items-center">

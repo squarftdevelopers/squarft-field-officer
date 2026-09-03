@@ -3,40 +3,40 @@ import { StatusBar } from "expo-status-bar";
 import { Link, router } from "expo-router";
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Ionicons } from "@expo/vector-icons";
-import { setName, setMobile, setPassword, setConfirmPassword, setOtpFlow, setOtpToken } from "../../store/slices/authSlice";
+import { setFirstName, setLastName, setMobile, setOtpFlow, setOtpToken, clearOtp } from "../../store/slices/authSlice";
 import { authAPI } from "../../services/api";
 
 const logo = require("../../assets/icons/app-icon.png");
+const COUNTRY_CODE = "+91";
 
 export default function Register() {
     const dispatch = useDispatch();
-    const { name, mobile, password, confirmPassword } = useSelector((state) => state.auth);
-    const [showConfirm, setShowConfirm] = useState(false);
+    const { firstName, lastName, mobile } = useSelector((state) => state.auth);
     const [loading, setLoading] = useState(false);
 
     const handleRegister = async () => {
-        if (!name || !mobile || !password || !confirmPassword) {
-            Alert.alert("Error", "Please fill all fields");
+        if (!firstName.trim() || !lastName.trim()) {
+            Alert.alert("Missing Information", "Please enter your first and last name");
             return;
         }
 
-        if (password !== confirmPassword) {
-            Alert.alert("Error", "Passwords do not match");
+        if (!mobile.trim()) {
+            Alert.alert("Missing Information", "Please enter your mobile number");
             return;
         }
 
-        if (password.length < 8) {
-            Alert.alert("Error", "Password must be at least 8 characters");
+        if (mobile.length !== 10) {
+            Alert.alert("Error", "Please enter a valid 10-digit mobile number");
             return;
         }
 
         setLoading(true);
         try {
-            await authAPI.register(mobile, password, name);
-            Alert.alert("Success", "Registration successful! Please login.", [
-                { text: "OK", onPress: () => router.replace("/login") }
-            ]);
+            const response = await authAPI.sendOtp(`${COUNTRY_CODE}${mobile}`, "register");
+            dispatch(setOtpFlow("register"));
+            dispatch(setOtpToken(response.otp_token));
+            dispatch(clearOtp());
+            router.push("/otp-verification");
         } catch (error) {
             console.log("Registration failed", {
                 response: error.response?.data,
@@ -68,68 +68,44 @@ export default function Register() {
 
             <View className="flex-1 bg-white px-6 pt-8">
 
-                <Text className="text-gray-500 text-[13px] mb-1.5">Enter Your Name</Text>
+                <Text className="text-gray-500 text-[13px] mb-1.5">First Name</Text>
                 <View className="border border-gray-200 rounded-xl px-4 py-2 mb-5">
                     <TextInput
-                        value={name}
-                        onChangeText={(val) => dispatch(setName(val))}
-                        placeholder="Name"
+                        value={firstName}
+                        onChangeText={(val) => dispatch(setFirstName(val))}
+                        placeholder="First Name"
                         placeholderTextColor="#aaa"
+                        autoCapitalize="words"
+                        className="text-[15px] text-black"
+                    />
+                </View>
+
+                <Text className="text-gray-500 text-[13px] mb-1.5">Last Name</Text>
+                <View className="border border-gray-200 rounded-xl px-4 py-2 mb-5">
+                    <TextInput
+                        value={lastName}
+                        onChangeText={(val) => dispatch(setLastName(val))}
+                        placeholder="Last Name"
+                        placeholderTextColor="#aaa"
+                        autoCapitalize="words"
                         className="text-[15px] text-black"
                     />
                 </View>
 
                 {/* Mobile */}
-                <Text className="text-gray-500 text-[13px] mb-1.5">Enter Your Mobile Number</Text>
-                <View className="border border-gray-200 rounded-xl px-4 py-2 mb-5">
+                <Text className="text-gray-500 text-[13px] mb-1.5">Phone Number</Text>
+                <View className="border border-gray-200 rounded-xl px-4 py-2 mb-5 flex-row items-center">
+                    <Text className="text-[15px] text-black font-semibold mr-2">{COUNTRY_CODE}</Text>
+                    <View className="w-[1px] h-5 bg-gray-200 mr-3" />
                     <TextInput
                         value={mobile}
-                        onChangeText={(val) => dispatch(setMobile(val))}
-                        placeholder="Number"
+                        onChangeText={(val) => dispatch(setMobile(val.replace(/[^0-9]/g, '').slice(0, 10)))}
+                        placeholder="Phone Number"
                         placeholderTextColor="#aaa"
                         keyboardType="phone-pad"
-                        className="text-[15px] text-black"
-                    />
-                </View>
-
-                <Text className="text-gray-500 text-[13px] mb-1.5">Password</Text>
-                <View className="border border-gray-200 rounded-xl px-4 py-2 flex-row items-center mb-8">
-                    <TextInput
-                        value={password}
-                        onChangeText={(val) => dispatch(setPassword(val))}
-                        placeholder="••••••••"
-                        placeholderTextColor="#aaa"
-                        secureTextEntry={!showConfirm}
+                        maxLength={10}
                         className="flex-1 text-[15px] text-black"
                     />
-                       <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
-                        <Ionicons
-                            name={showConfirm ? "eye-outline" : "eye-off-outline"}
-                            size={20}
-                            color="#aaa"
-                        />
-                    </TouchableOpacity>
-                    
-                </View>
-
-
-                <Text className="text-gray-500 text-[13px] mb-1.5">Confirm Password</Text>
-                <View className="border border-gray-200 rounded-xl px-4 py-2 flex-row items-center mb-8">
-                    <TextInput
-                        value={confirmPassword}
-                        onChangeText={(val) => dispatch(setConfirmPassword(val))}
-                        placeholder="••••••••"
-                        placeholderTextColor="#aaa"
-                        secureTextEntry={!showConfirm}
-                        className="flex-1 text-[15px] text-black"
-                    />
-                    <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
-                        <Ionicons
-                            name={showConfirm ? "eye-outline" : "eye-off-outline"}
-                            size={20}
-                            color="#aaa"
-                        />
-                    </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity
@@ -140,7 +116,7 @@ export default function Register() {
                     {loading ? (
                         <ActivityIndicator color="#fff" />
                     ) : (
-                        <Text className="text-white text-[16px] font-semibold">Register</Text>
+                        <Text className="text-white text-[16px] font-semibold">Send OTP</Text>
                     )}
                 </TouchableOpacity>
 

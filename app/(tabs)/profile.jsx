@@ -1,262 +1,431 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
-import { ActivityIndicator, Alert, Image, Linking, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useCallback, useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    Linking,
+    RefreshControl,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import { profileLinks } from "../../data/profileData";
-import { authAPI } from "../../services/api";
+import { authAPI, profileAPI } from "../../services/api";
 import { logout } from "../../store/slices/authSlice";
-import { clearOfficerProfile, fetchOfficerProfile } from "../../store/slices/profileSlice";
+import { fetchDashboard } from "../../store/slices/dashboardSlice";
+import {
+    clearOfficerProfile,
+    fetchOfficerProfile,
+    updateOfficerAvatar,
+} from "../../store/slices/profileSlice";
 
-const profileImage = require("../../assets/images/profile-officer.png");
-
-const statToneStyles = {
-    primary: { bg: "#F1EFFF", text: "#4A43EC" },
-    success: { bg: "#DCFCE7", text: "#16A34A" },
+const KYC_BADGES = {
+    verified: { label: "KYC Approved", color: "#10B981", background: "#D1FAE5", icon: "shield-checkmark" },
+    under_review: { label: "KYC Under Review", color: "#D97706", background: "#FEF3C7", icon: "time" },
+    pending: { label: "KYC Incomplete", color: "#D97706", background: "#FEF3C7", icon: "document-text" },
+    rejected: { label: "KYC Rejected", color: "#DC2626", background: "#FEE2E2", icon: "alert-circle" },
+    missing: { label: "Complete KYC", color: "#4A43EC", background: "#EDE9FE", icon: "document-text" },
 };
 
-const statConfig = [
-    { key: "total_leads", label: "Total Leads", tone: "primary" },
-    { key: "meetings_done", label: "Meetings Done", tone: "success" },
-    { key: "onboarded", label: "Onboarded", tone: "primary" },
-    { key: "projects_live", label: "Projects Live", tone: "success" },
+const PERFORMANCE_ITEMS = [
+    { key: "total_leads", label: "New Leads", icon: "people-outline", color: "#4A43EC", background: "#EEECFF" },
+    { key: "meetings_done", label: "Meetings Done", icon: "checkmark-done-outline", color: "#059669", background: "#D1FAE5" },
+    { key: "onboarded", label: "Onboarded", icon: "person-add-outline", color: "#7C3AED", background: "#EDE9FE" },
+    { key: "projects_live", label: "Projects Live", icon: "business-outline", color: "#0284C7", background: "#E0F2FE" },
 ];
 
-function getInitials(name) {
-    return (name || "FO")
-        .trim()
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase())
-        .join("") || "FO";
-}
+const formatDate = (value) => {
+    if (!value) return "Unavailable";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Unavailable";
+    return date.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+    });
+};
 
-async function openUrl(url, fallbackMessage = "Unable to open this link.") {
-    try {
-        const supported = await Linking.canOpenURL(url);
-        if (!supported) {
-            Alert.alert("Unavailable", fallbackMessage);
-            return;
-        }
-        await Linking.openURL(url);
-    } catch {
-        Alert.alert("Unavailable", fallbackMessage);
+const getInitials = (name) => (name || "Field Officer")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "FO";
+
+function ProfileAvatar({ uri, name, size = 76 }) {
+    const [failedUri, setFailedUri] = useState(null);
+    const canShowImage = Boolean(uri) && failedUri !== uri;
+
+    if (canShowImage) {
+        return (
+            <Image
+                source={{ uri }}
+                onError={() => setFailedUri(uri)}
+                style={{ width: size, height: size, borderRadius: 22 }}
+                resizeMode="cover"
+            />
+        );
     }
+
+    return (
+        <View
+            className="items-center justify-center bg-white/20"
+            style={{ width: size, height: size, borderRadius: 22 }}
+        >
+            <Text className="text-[24px] font-lato-bold text-white">{getInitials(name)}</Text>
+        </View>
+    );
 }
 
-function Section({ title, children }) {
+function AccountRow({ icon, label, value, last = false }) {
     return (
-        <View className="mb-3 rounded-[12px] border border-[#E5E7EB] bg-white p-3">
-            <Text className="mb-2.5 text-[10px] font-lato-bold uppercase tracking-[1.5px] text-[#64748B]">
-                {title}
-            </Text>
+        <View className={`flex-row items-center py-3.5 ${last ? "" : "border-b border-[#F1F5F9]"}`}>
+            <View className="h-9 w-9 items-center justify-center rounded-xl bg-[#F3F1FF]">
+                <Ionicons name={icon} size={17} color="#4A43EC" />
+            </View>
+            <View className="ml-3 flex-1">
+                <Text className="text-[10px] font-lato-bold uppercase tracking-[1px] text-[#94A3B8]">{label}</Text>
+                <Text className="mt-1 text-[14px] font-lato-bold text-[#1E293B]">{value}</Text>
+            </View>
+        </View>
+    );
+}
+
+function SectionCard({ title, children }) {
+    return (
+        <View className="mb-4 rounded-[22px] border border-[#E8EAF1] bg-white p-4">
+            <Text className="mb-2 text-[15px] font-lato-bold text-[#111827]">{title}</Text>
             {children}
         </View>
     );
 }
 
-function ErrorBanner({ message, onRetry, loading }) {
-    return (
-        <View className="mb-3 rounded-[12px] border border-[#FECACA] bg-[#FEF2F2] p-3">
-            <View className="flex-row items-start">
-                <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
-                <View className="ml-2 flex-1">
-                    <Text className="text-[12px] font-lato-bold text-[#991B1B]">Profile could not be refreshed</Text>
-                    <Text className="mt-1 text-[11px] leading-4 text-[#B91C1C]">{message}</Text>
-                </View>
-            </View>
-            <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={onRetry}
-                disabled={loading}
-                className="mt-2 h-8 flex-row items-center justify-center rounded-[8px] bg-[#DC2626]"
-            >
-                {loading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                    <>
-                        <Ionicons name="refresh" size={13} color="#fff" />
-                        <Text className="ml-1.5 text-[11px] font-lato-bold text-white">Retry</Text>
-                    </>
-                )}
-            </TouchableOpacity>
-        </View>
-    );
+async function callPhone(phone) {
+    if (!phone) {
+        Alert.alert("Phone unavailable", "No reporting manager phone number is available.");
+        return;
+    }
+
+    try {
+        const url = `tel:${phone}`;
+        const supported = await Linking.canOpenURL(url);
+        if (!supported) throw new Error("Phone calls are unavailable");
+        await Linking.openURL(url);
+    } catch {
+        Alert.alert("Unable to call", "Calling is not available on this device.");
+    }
 }
 
 export default function Profile() {
     const dispatch = useDispatch();
     const { profile, performanceThisMonth, reportingManager, loading, error } = useSelector((state) => state.profile);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-    useEffect(() => {
-        dispatch(fetchOfficerProfile());
-    }, [dispatch]);
+    useFocusEffect(
+        useCallback(() => {
+            dispatch(fetchOfficerProfile());
+        }, [dispatch]),
+    );
 
-    const handleLogout = async () => {
+    const refreshProfile = () => dispatch(fetchOfficerProfile());
+
+    const pickAndUploadPhoto = async (useCamera) => {
         try {
-            await authAPI.logout();
+            const permission = useCamera
+                ? await ImagePicker.requestCameraPermissionsAsync()
+                : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+            if (permission.status !== "granted") {
+                Alert.alert(
+                    "Permission Needed",
+                    useCamera ? "Camera permission is required." : "Photo library permission is required.",
+                );
+                return;
+            }
+
+            const result = useCamera
+                ? await ImagePicker.launchCameraAsync({
+                    cameraType: ImagePicker.CameraType.front,
+                    allowsEditing: true,
+                    aspect: [1, 1],
+                    quality: 0.8,
+                })
+                : await ImagePicker.launchImageLibraryAsync({
+                    mediaTypes: ["images"],
+                    allowsEditing: true,
+                    aspect: [1, 1],
+                    quality: 0.8,
+                });
+
+            if (result.canceled) return;
+
+            setUploadingPhoto(true);
+            const updated = await profileAPI.updateProfilePicture(result.assets[0]);
+            const signedAvatarUrl = updated?.profilePictureUrl || null;
+            dispatch(updateOfficerAvatar(signedAvatarUrl));
+            await Promise.all([
+                dispatch(fetchOfficerProfile()),
+                dispatch(fetchDashboard()),
+            ]);
+        } catch (uploadError) {
+            Alert.alert(
+                "Upload Failed",
+                uploadError.response?.data?.message || uploadError.message || "Unable to update your profile photo.",
+            );
         } finally {
-            dispatch(clearOfficerProfile());
-            dispatch(logout());
-            router.replace("/(auth)/login");
+            setUploadingPhoto(false);
         }
     };
 
-    const handleRetry = () => {
-        dispatch(fetchOfficerProfile());
+    const handleChangePhoto = () => {
+        Alert.alert(
+            "Profile Photo",
+            "Take a new photo or choose one from your gallery.",
+            [
+                { text: "Take Photo", onPress: () => pickAndUploadPhoto(true) },
+                { text: "Choose from Gallery", onPress: () => pickAndUploadPhoto(false) },
+                { text: "Cancel", style: "cancel" },
+            ],
+        );
     };
 
-    const handleCallManager = () => {
-        if (!reportingManager?.phone) {
-            Alert.alert("Phone unavailable", "No reporting manager phone number is available.");
-            return;
-        }
-        openUrl(`tel:${reportingManager.phone}`, "Unable to call this number.");
+    const handleKycPress = () => {
+        router.push({
+            pathname: "/(auth)/kyc",
+            params: {
+                status: profile?.kyc_status || "missing",
+                rejectionReason: profile?.rejection_reason || "",
+            },
+        });
     };
 
     const handleQuickLinkPress = (link) => {
-        if (link.label === "Map View - Nearby Projects") {
-            router.push("/(screens)/nearby-projects");
-        } else if (link.label === "Help & Support") {
-            router.push("/(screens)/support");
-        }
+        if (link.route) router.push(link.route);
     };
 
-    const stats = statConfig.map((stat) => ({
-        ...stat,
-        value: performanceThisMonth?.[stat.key] ?? 0,
-    }));
+    const handleLogout = () => {
+        Alert.alert(
+            "Logout",
+            "Are you sure you want to log out of the SquarFT Field Officer app?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Logout",
+                    style: "destructive",
+                    onPress: async () => {
+                        await authAPI.logout();
+                        dispatch(clearOfficerProfile());
+                        dispatch(logout());
+                        router.replace("/(auth)/login");
+                    },
+                },
+            ],
+        );
+    };
 
-    const profileName = profile?.name || "Field Officer";
-    const roleDisplay = profile?.role_display || "Field Officer";
-    const managerName = reportingManager?.name || "Not assigned";
-    const managerRole = reportingManager?.role_display || "Reporting Manager";
-    const managerMeta = [managerRole, reportingManager?.location].filter(Boolean).join(" - ");
+    const displayName = profile?.name?.trim() || "Field Officer";
+    const kycStatus = String(profile?.kyc_status || "missing").toLowerCase();
+    const kycBadge = KYC_BADGES[kycStatus] || KYC_BADGES.missing;
 
     return (
-        <View className="flex-1 bg-white">
+        <View className="flex-1 bg-[#F7F8FC]">
             <StatusBar style="light" />
-            <SafeAreaView className="flex-1 bg-[#4A43EC]" edges={["top"]}>
-                <View className="bg-[#4A43EC] px-4 pb-7 pt-3">
+            <SafeAreaView className="bg-[#4A43EC]" edges={["top"]}>
+                <View className="px-5 pb-7 pt-3">
+                    <Text className="mb-5 text-[20px] font-lato-bold text-white">My Profile</Text>
+
                     <View className="flex-row items-center">
-                        <View className="h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-white">
-                            <Image
-                                source={profile?.avatar_url ? { uri: profile.avatar_url } : profileImage}
-                                className="h-12 w-12"
-                                resizeMode="cover"
-                            />
-                        </View>
-                        <View className="ml-3 flex-1">
-                            <View className="flex-row items-center">
-                                <Text className="text-[18px] font-lato-bold text-white" numberOfLines={1}>
-                                    {profileName}
-                                </Text>
-                                {profile?.is_verified && (
-                                    <Ionicons name="checkmark-circle" size={14} color="#10F528" style={{ marginLeft: 5 }} />
+                        <TouchableOpacity
+                            activeOpacity={0.85}
+                            onPress={handleChangePhoto}
+                            disabled={uploadingPhoto || !profile}
+                            className="relative rounded-[22px] border border-white/30"
+                        >
+                            <ProfileAvatar uri={profile?.avatar_url} name={displayName} />
+                            <View className="absolute -bottom-2 -right-2 h-7 w-7 items-center justify-center rounded-full border-2 border-[#4A43EC] bg-white">
+                                {uploadingPhoto ? (
+                                    <ActivityIndicator size="small" color="#4A43EC" />
+                                ) : (
+                                    <Ionicons name="camera" size={13} color="#4A43EC" />
                                 )}
                             </View>
-                            <Text className="mt-1 text-[12px] text-white/80">
-                                {roleDisplay}
+                        </TouchableOpacity>
+
+                        <View className="ml-4 flex-1">
+                            <Text className="text-[20px] font-lato-bold text-white" numberOfLines={1}>
+                                {displayName}
                             </Text>
+                            <Text className="mt-1 text-[12px] text-white/75">{profile?.role_display || "Field Officer"}</Text>
+                            <View
+                                className="mt-2 self-start rounded-full px-2.5 py-1"
+                                style={{ backgroundColor: kycBadge.background }}
+                            >
+                                <Text className="text-[10px] font-lato-bold" style={{ color: kycBadge.color }}>
+                                    {kycBadge.label}
+                                </Text>
+                            </View>
                         </View>
                     </View>
                 </View>
+            </SafeAreaView>
 
-                <ScrollView
-                    className="-mt-4 flex-1 rounded-t-[18px] bg-white px-4 pt-4"
-                    contentContainerStyle={{ paddingBottom: 96 }}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={loading && Boolean(profile)}
-                            onRefresh={handleRetry}
-                            tintColor="#4A43EC"
-                            colors={["#4A43EC"]}
-                        />
-                    }
-                    showsVerticalScrollIndicator={false}
-                >
-                    {loading && !profile ? (
-                        <View className="mb-3 h-10 flex-row items-center justify-center rounded-[10px] bg-[#F8F9FF]">
-                            <ActivityIndicator size="small" color="#4A43EC" />
-                            <Text className="ml-2 text-[12px] font-lato-bold text-[#4A43EC]">Loading profile</Text>
-                        </View>
-                    ) : null}
+            <ScrollView
+                className="flex-1"
+                contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: 110 }}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={loading && Boolean(profile)}
+                        onRefresh={refreshProfile}
+                        tintColor="#4A43EC"
+                        colors={["#4A43EC"]}
+                    />
+                }
+            >
+                {loading && !profile ? (
+                    <View className="mb-4 h-14 flex-row items-center justify-center rounded-2xl bg-white">
+                        <ActivityIndicator color="#4A43EC" />
+                        <Text className="ml-2 text-[13px] font-lato-bold text-[#4A43EC]">Loading your profile</Text>
+                    </View>
+                ) : null}
 
-                    {error ? <ErrorBanner message={error} onRetry={handleRetry} loading={loading} /> : null}
+                {error ? (
+                    <View className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4">
+                        <Text className="text-[13px] font-lato-bold text-red-700">Profile could not be loaded</Text>
+                        <Text className="mt-1 text-[12px] leading-5 text-red-600">{error}</Text>
+                        <TouchableOpacity
+                            onPress={refreshProfile}
+                            disabled={loading}
+                            className="mt-3 h-9 items-center justify-center rounded-xl bg-red-600"
+                        >
+                            <Text className="text-[12px] font-lato-bold text-white">Try Again</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : null}
 
-                    <Section title="Performance This Month">
-                        <View className="flex-row flex-wrap justify-between">
-                            {stats.map((stat) => {
-                                const tone = statToneStyles[stat.tone] ?? statToneStyles.primary;
+                {profile ? (
+                    <>
+                        <SectionCard title="Account Details">
+                            <AccountRow icon="call-outline" label="Phone Number" value={profile.phone || "Unavailable"} />
+                            {profile.email ? (
+                                <AccountRow icon="mail-outline" label="Email Address" value={profile.email} />
+                            ) : null}
+                            <AccountRow icon="location-outline" label="Assigned Location" value={profile.location || "Not assigned"} />
+                            <AccountRow
+                                icon="shield-checkmark-outline"
+                                label="Phone Verification"
+                                value={profile.phone_verified ? "OTP verified" : "Not verified"}
+                            />
+                            <AccountRow icon="calendar-outline" label="Member Since" value={formatDate(profile.created_at)} last />
+                        </SectionCard>
 
-                                return (
+                        <SectionCard title="Performance This Month">
+                            <View className="flex-row flex-wrap justify-between">
+                                {PERFORMANCE_ITEMS.map((item) => (
                                     <View
-                                        key={stat.label}
-                                        className="mb-2 h-[64px] w-[48.5%] items-center justify-center rounded-[10px]"
-                                        style={{ backgroundColor: tone.bg }}
+                                        key={item.key}
+                                        className="mb-2 w-[48.5%] rounded-2xl p-3"
+                                        style={{ backgroundColor: item.background }}
                                     >
-                                        <Text className="text-[18px] font-lato-bold" style={{ color: tone.text }}>
-                                            {stat.value}
+                                        <Ionicons name={item.icon} size={18} color={item.color} />
+                                        <Text className="mt-2 text-[22px] font-lato-bold" style={{ color: item.color }}>
+                                            {performanceThisMonth?.[item.key] ?? 0}
                                         </Text>
-                                        <Text className="mt-0.5 text-[10px] font-semibold text-[#475569]">{stat.label}</Text>
+                                        <Text className="mt-0.5 text-[11px] font-lato-bold text-[#475569]">{item.label}</Text>
                                     </View>
-                                );
-                            })}
-                        </View>
-                    </Section>
+                                ))}
+                            </View>
+                        </SectionCard>
 
-                    <Section title="Reporting Manager">
-                        <View className="flex-row items-center">
-                            <View className="h-10 w-10 items-center justify-center rounded-full bg-[#F1EFFF]">
-                                <Text className="text-[11px] font-lato-bold text-[#4A43EC]">
-                                    {getInitials(managerName)}
-                                </Text>
+                        <TouchableOpacity
+                            activeOpacity={0.85}
+                            onPress={handleKycPress}
+                            className="mb-4 flex-row items-center rounded-[22px] border border-[#E8EAF1] bg-white p-4"
+                        >
+                            <View
+                                className="h-11 w-11 items-center justify-center rounded-2xl"
+                                style={{ backgroundColor: kycBadge.background }}
+                            >
+                                <Ionicons name={kycBadge.icon} size={21} color={kycBadge.color} />
                             </View>
                             <View className="ml-3 flex-1">
-                                <Text className="text-[13px] font-lato-bold text-[#111827]">
-                                    {managerName}
+                                <Text className="text-[14px] font-lato-bold text-[#111827]">{kycBadge.label}</Text>
+                                <Text className="mt-1 text-[11px] leading-4 text-[#64748B]" numberOfLines={2}>
+                                    {kycStatus === "rejected" && profile.rejection_reason
+                                        ? profile.rejection_reason
+                                        : kycStatus === "verified"
+                                            ? "Your identity documents have been approved."
+                                            : "Tap to view or complete your verification."}
                                 </Text>
-                                <Text className="mt-0.5 text-[10px] text-[#64748B]">{managerMeta}</Text>
                             </View>
-                            <TouchableOpacity
-                                activeOpacity={0.8}
-                                onPress={handleCallManager}
-                                disabled={!reportingManager?.phone}
-                                className="h-8 w-8 items-center justify-center rounded-[8px] border border-[#DDE2FF] bg-white"
-                                style={{ opacity: reportingManager?.phone ? 1 : 0.45 }}
-                            >
-                                <Ionicons name="call-outline" size={15} color="#4A43EC" />
-                            </TouchableOpacity>
-                        </View>
-                    </Section>
+                            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                        </TouchableOpacity>
 
-                    <Section title="Quick Links">
-                        {profileLinks.map((link) => (
-                            <TouchableOpacity
-                                key={link.label}
-                                activeOpacity={0.8}
-                                onPress={() => handleQuickLinkPress(link)}
-                                className="h-11 flex-row items-center border-b border-[#F1F5F9] last:border-b-0"
-                            >
-                                <Ionicons name={link.icon} size={15} color="#4A43EC" />
-                                <Text className="ml-3 flex-1 text-[12px] font-lato-bold text-[#111827]">{link.label}</Text>
-                                <Ionicons name="chevron-forward" size={14} color="#94A3B8" />
-                            </TouchableOpacity>
-                        ))}
-                    </Section>
+                        <SectionCard title="Reporting Manager">
+                            {reportingManager ? (
+                                <View className="flex-row items-center py-1">
+                                    <View className="h-11 w-11 items-center justify-center rounded-full bg-[#EEECFF]">
+                                        <Text className="text-[12px] font-lato-bold text-[#4A43EC]">
+                                            {getInitials(reportingManager.name)}
+                                        </Text>
+                                    </View>
+                                    <View className="ml-3 flex-1">
+                                        <Text className="text-[14px] font-lato-bold text-[#111827]">{reportingManager.name}</Text>
+                                        <Text className="mt-0.5 text-[11px] text-[#64748B]">
+                                            {[reportingManager.role_display, reportingManager.location].filter(Boolean).join(" · ")}
+                                        </Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        onPress={() => callPhone(reportingManager.phone)}
+                                        disabled={!reportingManager.phone}
+                                        className="h-10 w-10 items-center justify-center rounded-xl border border-[#DCD8FF]"
+                                        style={{ opacity: reportingManager.phone ? 1 : 0.4 }}
+                                    >
+                                        <Ionicons name="call-outline" size={17} color="#4A43EC" />
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <View className="flex-row items-center py-2">
+                                    <Ionicons name="information-circle-outline" size={19} color="#64748B" />
+                                    <Text className="ml-2 text-[12px] text-[#64748B]">No reporting manager is assigned yet.</Text>
+                                </View>
+                            )}
+                        </SectionCard>
 
-                    <TouchableOpacity
-                        activeOpacity={0.85}
-                        onPress={handleLogout}
-                        className="h-11 flex-row items-center justify-center rounded-[10px] border border-[#EF4444] bg-white"
-                    >
-                        <Ionicons name="log-out-outline" size={15} color="#EF4444" />
-                        <Text className="ml-2 text-[12px] font-lato-bold text-[#EF4444]">Logout</Text>
-                    </TouchableOpacity>
-                </ScrollView>
-            </SafeAreaView>
+                        <SectionCard title="Quick Links">
+                            {profileLinks.map((link, index) => (
+                                <TouchableOpacity
+                                    key={link.label}
+                                    activeOpacity={0.75}
+                                    onPress={() => handleQuickLinkPress(link)}
+                                    className={`h-12 flex-row items-center ${index < profileLinks.length - 1 ? "border-b border-[#F1F5F9]" : ""}`}
+                                >
+                                    <Ionicons name={link.icon} size={18} color="#4A43EC" />
+                                    <Text className="ml-3 flex-1 text-[13px] font-lato-bold text-[#334155]">{link.label}</Text>
+                                    <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+                                </TouchableOpacity>
+                            ))}
+                        </SectionCard>
+                    </>
+                ) : null}
+
+                <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={handleLogout}
+                    className="h-12 flex-row items-center justify-center rounded-2xl border border-red-200 bg-white"
+                >
+                    <Ionicons name="log-out-outline" size={18} color="#EF4444" />
+                    <Text className="ml-2 text-[13px] font-lato-bold text-red-500">Log Out</Text>
+                </TouchableOpacity>
+            </ScrollView>
         </View>
     );
 }

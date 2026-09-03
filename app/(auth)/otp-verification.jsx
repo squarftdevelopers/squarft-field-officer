@@ -1,24 +1,46 @@
-import { Text, View, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator } from "react-native";
+import { Text, View, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, Keyboard } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
-import { useRef, useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { setOtpDigit, clearOtp, setLoggedIn, setVerifiedToken } from "../../store/slices/authSlice";
+import { setOtpDigit, clearOtp, setLoggedIn, setVerifiedToken, setOtpToken } from "../../store/slices/authSlice";
 import { authAPI } from "../../services/api";
 
 const logo = require("../../assets/icons/app-icon.png");
 
 export default function OtpVerification() {
     const dispatch = useDispatch();
-    const { otp, otpFlow, otpToken, mobile, password, name } = useSelector((state) => state.auth);
+    const { otp, otpFlow, otpToken, mobile, firstName, lastName } = useSelector((state) => state.auth);
     const inputs = useRef([]);
+    const autoSubmittedRef = useRef(false);
     const [loading, setLoading] = useState(false);
     const [resending, setResending] = useState(false);
 
+    useEffect(() => {
+        autoSubmittedRef.current = false;
+        const focusTimeout = setTimeout(() => inputs.current[0]?.focus(), 300);
+        return () => clearTimeout(focusTimeout);
+    }, []);
+
     const handleChange = (text, index) => {
-        const digit = text.replace(/[^0-9]/g, '').slice(-1);
+        const digits = text.replace(/[^0-9]/g, '');
+
+        if (digits.length > 1) {
+            digits.slice(0, otp.length).split('').forEach((digit, digitIndex) => {
+                dispatch(setOtpDigit({ index: digitIndex, value: digit }));
+            });
+            const lastFilledIndex = Math.min(digits.length, otp.length) - 1;
+            if (digits.length < otp.length) {
+                inputs.current[lastFilledIndex + 1]?.focus();
+            } else {
+                Keyboard.dismiss();
+            }
+            return;
+        }
+
+        const digit = digits.slice(-1);
         dispatch(setOtpDigit({ index, value: digit }));
-        if (digit && index < 3) {
+        if (digit && index < otp.length - 1) {
             inputs.current[index + 1]?.focus();
         }
     };
@@ -29,9 +51,9 @@ export default function OtpVerification() {
         }
     };
 
-    const handleVerify = async () => {
+    const handleVerify = useCallback(async () => {
         const otpCode = otp.join('');
-        if (otpCode.length !== 4) {
+        if (otpCode.length !== otp.length) {
             Alert.alert("Error", "Please enter complete OTP");
             return;
         }
@@ -43,10 +65,42 @@ export default function OtpVerification() {
             if (otpFlow === 'forgot-password') {
                 dispatch(setVerifiedToken(response.verified_token));
                 router.push("/change-password");
+            } else if (otpFlow === 'login') {
+                const login = await authAPI.login(response.verified_token);
+                const kycStatus = login.user?.kyc_status || 'missing';
+
+                if (kycStatus === 'verified') {
+                    dispatch(setLoggedIn(true));
+                    router.replace("/(tabs)/home");
+                } else {
+                    router.replace({
+                        pathname: "/(auth)/kyc",
+                        params: {
+                            status: kycStatus,
+                            rejectionReason: login.user?.rejection_reason || '',
+                        },
+                    });
+                }
             } else if (otpFlow === 'register') {
-                await authAPI.register(mobile, password, name);
-                dispatch(setLoggedIn(true));
-                router.replace("/(tabs)/home");
+                dispatch(setVerifiedToken(response.verified_token));
+                const registration = await authAPI.register(
+                    response.verified_token,
+                    firstName.trim(),
+                    lastName.trim(),
+                );
+                const kycStatus = registration.user?.kyc_status || 'missing';
+                if (kycStatus === 'verified') {
+                    dispatch(setLoggedIn(true));
+                    router.replace("/(tabs)/home");
+                } else {
+                    router.replace({
+                        pathname: "/(auth)/kyc",
+                        params: {
+                            status: kycStatus,
+                            rejectionReason: registration.user?.rejection_reason || '',
+                        },
+                    });
+                }
             }
             dispatch(clearOtp());
         } catch (error) {
@@ -54,12 +108,25 @@ export default function OtpVerification() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [dispatch, firstName, lastName, otp, otpFlow, otpToken]);
+
+    useEffect(() => {
+        const otpCode = otp.join('');
+        if (otpCode.length === otp.length && !loading && !autoSubmittedRef.current) {
+            autoSubmittedRef.current = true;
+            Keyboard.dismiss();
+            handleVerify();
+        }
+        if (otpCode.length < otp.length) {
+            autoSubmittedRef.current = false;
+        }
+    }, [handleVerify, loading, otp]);
 
     const handleResend = async () => {
         setResending(true);
         try {
-            const purpose = otpFlow === 'forgot-password' ? 'reset_password' : 'register';
+            autoSubmittedRef.current = false;
+            const purpose = otpFlow === 'forgot-password' ? 'reset_password' : otpFlow;
             const response = await authAPI.sendOtp(mobile, purpose);
             dispatch(setOtpToken(response.otp_token));
             dispatch(clearOtp());
@@ -95,10 +162,13 @@ export default function OtpVerification() {
                             onChangeText={(text) => handleChange(text, index)}
                             onKeyPress={(e) => handleKeyPress(e, index)}
                             keyboardType="number-pad"
-                            maxLength={1}
+                            textContentType={index === 0 ? "oneTimeCode" : "none"}
+                            autoComplete={index === 0 ? "sms-otp" : "off"}
+                            importantForAutofill={index === 0 ? "yes" : "no"}
+                            maxLength={index === 0 ? otp.length : 1}
                             style={{
-                                width: 70,
-                                height: 70,
+                                width: 48,
+                                height: 56,
                                 borderWidth: 1,
                                 borderColor: digit ? '#4A43EC' : '#E5E7EB',
                                 borderRadius: 12,
@@ -123,7 +193,7 @@ export default function OtpVerification() {
                 </TouchableOpacity>
 
                 <View className="flex-row justify-center items-center">
-                    <Text className="text-gray-500 text-[14px]">Didn't get the OTP?  </Text>
+                    <Text className="text-gray-500 text-[14px]">{"Didn't get the OTP?  "}</Text>
                     <TouchableOpacity onPress={handleResend} disabled={resending}>
                         {resending ? (
                             <ActivityIndicator size="small" color="#4A43EC" />

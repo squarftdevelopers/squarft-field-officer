@@ -3,12 +3,13 @@ import { createSlice } from '@reduxjs/toolkit';
 const authSlice = createSlice({
     name: 'auth',
     initialState: {
-        name: '',
+        firstName: '',
+        lastName: '',
         mobile: '',
         password: '',
         newPassword: '',
         confirmPassword: '',
-        otp: ['', '', '', ''],
+        otp: ['', '', '', '', '', ''],
         otpFlow: 'register', 
         otpToken: '',
         verifiedToken: '',
@@ -16,7 +17,8 @@ const authSlice = createSlice({
         isLoggedIn: false,
     },
     reducers: {
-        setName: (state, action) => { state.name = action.payload; },
+        setFirstName: (state, action) => { state.firstName = action.payload; },
+        setLastName: (state, action) => { state.lastName = action.payload; },
         setMobile: (state, action) => { state.mobile = action.payload; },
         setPassword: (state, action) => { state.password = action.payload; },
         setNewPassword: (state, action) => { state.newPassword = action.payload; },
@@ -25,7 +27,7 @@ const authSlice = createSlice({
             const { index, value } = action.payload;
             state.otp[index] = value;
         },
-        clearOtp: (state) => { state.otp = ['', '', '', '']; },
+        clearOtp: (state) => { state.otp = ['', '', '', '', '', '']; },
         setOtpFlow: (state, action) => { state.otpFlow = action.payload; },
         setOtpToken: (state, action) => { state.otpToken = action.payload; },
         setVerifiedToken: (state, action) => { state.verifiedToken = action.payload; },
@@ -39,5 +41,5 @@ const authSlice = createSlice({
     },
 });
 
-export const { setName, setMobile, setPassword, setNewPassword, setConfirmPassword, setOtpDigit, clearOtp, setOtpFlow, setOtpToken, setVerifiedToken, toggleRememberMe, setLoggedIn, logout } = authSlice.actions;
+export const { setFirstName, setLastName, setMobile, setPassword, setNewPassword, setConfirmPassword, setOtpDigit, clearOtp, setOtpFlow, setOtpToken, setVerifiedToken, toggleRememberMe, setLoggedIn, logout } = authSlice.actions;
 export default authSlice.reducer;

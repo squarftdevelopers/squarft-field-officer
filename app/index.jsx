@@ -3,7 +3,7 @@ import { StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
-import { getAuthToken, profileAPI } from "../services/api";
+import { profileAPI, restoreAuthToken } from "../services/api";
 import { useDispatch } from "react-redux";
 import { setLoggedIn } from "../store/slices/authSlice";
 
@@ -20,7 +20,7 @@ export default function Index() {
             let routeParams = null;
 
             try {
-                const token = getAuthToken();
+                const token = await restoreAuthToken();
                 if (token) {
                     const res = await profileAPI.getProfile();
                     if (res && res.success && res.data?.profile) {

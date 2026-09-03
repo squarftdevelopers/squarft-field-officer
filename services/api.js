@@ -1,8 +1,19 @@
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 let authToken = null;
-export const setAuthToken = (token) => { authToken = token; };
+export const setAuthToken = (token) => {
+  authToken = token || null;
+  const storageAction = token
+    ? AsyncStorage.setItem('authToken', token)
+    : AsyncStorage.removeItem('authToken');
+  storageAction.catch((error) => console.warn('Unable to persist auth token:', error.message));
+};
 export const getAuthToken = () => authToken;
+export const restoreAuthToken = async () => {
+  if (!authToken) authToken = await AsyncStorage.getItem('authToken');
+  return authToken;
+};
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.0.107:3001';
 
@@ -16,8 +27,9 @@ const api = axios.create({
 
 api.interceptors.request.use(
   async (config) => {
-    const token = authToken;
+    const token = authToken || await AsyncStorage.getItem('authToken');
     if (token) {
+      authToken = token;
       config.headers.Authorization = `Bearer ${token}`;
     }
     console.log("API request", { method: config.method, url: config.url, baseURL: config.baseURL || API_BASE_URL });
@@ -47,31 +59,37 @@ const normalizePhone = (phone) => {
 };
 
 export const authAPI = {
-  login: async (phone, password) => {
-    const { data } = await api.post('/api/v1/field-officer/auth/login', { phone: normalizePhone(phone), password });
+  login: async (verified_token) => {
+    const { data } = await api.post('/api/v1/field-officer/auth/login', { verified_token });
     if (data.token) {
-      authToken = data.token;
+      setAuthToken(data.token);
     }
     return data;
   },
 
-  register: async (phone, password, full_name, location) => {
+  register: async (verified_token, first_name, last_name, location) => {
     const { data } = await api.post('/api/v1/field-officer/auth/register', {
-      phone: normalizePhone(phone),
-      password,
-      full_name,
+      verified_token,
+      first_name,
+      last_name,
       location: location || null,
     });
+    if (data.token) {
+      setAuthToken(data.token);
+    }
     return data;
   },
 
   sendOtp: async (phone, purpose) => {
-    const { data } = await api.post('/auth/send-otp', { phone: normalizePhone(phone), purpose });
+    const { data } = await api.post('/api/v1/field-officer/auth/send-otp', {
+      phone: normalizePhone(phone),
+      purpose,
+    });
     return data;
   },
 
   verifyOtp: async (otp_token, otp) => {
-    const { data } = await api.post('/auth/verify-otp', { otp_token, otp });
+    const { data } = await api.post('/api/v1/field-officer/auth/verify-otp', { otp_token, otp });
     return data;
   },
 
@@ -81,7 +99,7 @@ export const authAPI = {
   },
 
   logout: async () => {
-    authToken = null;
+    setAuthToken(null);
   },
 };
 
@@ -96,6 +114,21 @@ export const profileAPI = {
   getProfile: async () => {
     const { data } = await api.get('/api/v1/field-officer/profile');
     return data;
+  },
+  updateProfilePicture: async (asset) => {
+    const extension = asset?.uri?.split('.').pop()?.split('?')[0] || 'jpg';
+    const formData = new FormData();
+    formData.append('profilePicture', {
+      uri: asset.uri,
+      name: asset.fileName || `profile-picture.${extension}`,
+      type: asset.mimeType || 'image/jpeg',
+    });
+
+    const { data } = await api.patch('/api/v1/profile/me/profile-picture', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
+    });
+    return data.data;
   },
   changePassword: async (currentPassword, newPassword) => {
     const { data } = await api.put('/api/v1/profile/change-password', {
@@ -273,6 +306,7 @@ export const kycAPI = {
   uploadKyc: async (formData) => {
     const { data } = await api.post('/api/v1/field-officer/kyc', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
     });
     return data;
   },
@@ -281,9 +315,14 @@ export const kycAPI = {
     return data;
   },
   updateKyc: async (formData) => {
-    const { data } = await api.put('/api/v1/field-officer/kyc', formData, {
+    const { data } = await api.patch('/api/v1/field-officer/kyc', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
     });
+    return data;
+  },
+  submitKyc: async () => {
+    const { data } = await api.post('/api/v1/field-officer/kyc/submit');
     return data;
   },
 };

@@ -38,6 +38,9 @@ const profileSlice = createSlice({
             state.loading = false;
             state.error = null;
         },
+        updateOfficerAvatar: (state, action) => {
+            if (state.profile) state.profile.avatar_url = action.payload || null;
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -59,5 +62,5 @@ const profileSlice = createSlice({
     },
 });
 
-export const { clearOfficerProfile, clearProfileError } = profileSlice.actions;
+export const { clearOfficerProfile, clearProfileError, updateOfficerAvatar } = profileSlice.actions;
 export default profileSlice.reducer;
