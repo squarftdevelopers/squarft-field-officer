@@ -326,6 +326,11 @@ export default function Profile() {
                             {profile.email ? (
                                 <AccountRow icon="mail-outline" label="Email Address" value={profile.email} />
                             ) : null}
+                            <AccountRow
+                                icon="business-outline"
+                                label="Branch"
+                                value={profile.branch?.name || "Not assigned"}
+                            />
                             <AccountRow icon="location-outline" label="Assigned Location" value={profile.location || "Not assigned"} />
                             <AccountRow
                                 icon="shield-checkmark-outline"

@@ -1,18 +1,38 @@
-import { Text, View, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator } from "react-native";
+import { Text, View, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, ScrollView } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Link, router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { setFirstName, setLastName, setMobile, setOtpFlow, setOtpToken, clearOtp } from "../../store/slices/authSlice";
+import { setFirstName, setLastName, setBranch, setMobile, setOtpFlow, setOtpToken, clearOtp } from "../../store/slices/authSlice";
 import { authAPI } from "../../services/api";
+import { branchService } from "../../services/branchService";
+import { Ionicons } from "@expo/vector-icons";
 
 const logo = require("../../assets/icons/app-icon.png");
 const COUNTRY_CODE = "+91";
 
 export default function Register() {
     const dispatch = useDispatch();
-    const { firstName, lastName, mobile } = useSelector((state) => state.auth);
+    const { firstName, lastName, branchId, branchName, mobile } = useSelector((state) => state.auth);
     const [loading, setLoading] = useState(false);
+    const [branches, setBranches] = useState([]);
+    const [branchesLoading, setBranchesLoading] = useState(true);
+    const [branchesError, setBranchesError] = useState('');
+    const [showBranchDropdown, setShowBranchDropdown] = useState(false);
+
+    useEffect(() => {
+        const loadBranches = async () => {
+            try {
+                setBranchesError('');
+                setBranches(await branchService.getBranches());
+            } catch (error) {
+                setBranchesError(error.message);
+            } finally {
+                setBranchesLoading(false);
+            }
+        };
+        loadBranches();
+    }, []);
 
     const handleRegister = async () => {
         if (!firstName.trim() || !lastName.trim()) {
@@ -22,6 +42,11 @@ export default function Register() {
 
         if (!mobile.trim()) {
             Alert.alert("Missing Information", "Please enter your mobile number");
+            return;
+        }
+
+        if (!branchId) {
+            Alert.alert("Missing Information", "Please select your branch");
             return;
         }
 
@@ -66,7 +91,12 @@ export default function Register() {
                 </Link>
             </View>
 
-            <View className="flex-1 bg-white px-6 pt-8">
+            <ScrollView
+                className="flex-1 bg-white"
+                contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 32 }}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+            >
 
                 <Text className="text-gray-500 text-[13px] mb-1.5">First Name</Text>
                 <View className="border border-gray-200 rounded-xl px-4 py-2 mb-5">
@@ -90,6 +120,46 @@ export default function Register() {
                         autoCapitalize="words"
                         className="text-[15px] text-black"
                     />
+                </View>
+
+                <View className="z-10">
+                    <Text className="text-gray-500 text-[13px] mb-1.5">Branch</Text>
+                    <TouchableOpacity
+                        onPress={() => setShowBranchDropdown((visible) => !visible)}
+                        disabled={branchesLoading}
+                        className="border border-gray-200 rounded-xl px-4 h-12 mb-5 flex-row items-center justify-between"
+                    >
+                        <Text className={branchName ? "text-[15px] text-black" : "text-[15px] text-gray-400"}>
+                            {branchesLoading ? "Loading branches..." : (branchName || "Select Branch")}
+                        </Text>
+                        <Ionicons name={showBranchDropdown ? "chevron-up" : "chevron-down"} size={19} color="#666" />
+                    </TouchableOpacity>
+
+                    {branchesError ? <Text className="text-red-500 text-[12px] mb-4 -mt-3">{branchesError}</Text> : null}
+
+                    {showBranchDropdown && (
+                        <View className="absolute top-[55px] left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-lg z-20 max-h-56 overflow-hidden">
+                            <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                                {branches.length ? branches.map((branch) => {
+                                    const label = branch.city ? `${branch.name} — ${branch.city}` : branch.name;
+                                    return (
+                                        <TouchableOpacity
+                                            key={branch.id}
+                                            onPress={() => {
+                                                dispatch(setBranch({ id: branch.id, name: label }));
+                                                setShowBranchDropdown(false);
+                                            }}
+                                            className="px-4 py-3 border-b border-gray-100"
+                                        >
+                                            <Text className={branchId === branch.id ? "text-[#4A43EC]" : "text-gray-800"}>{label}</Text>
+                                        </TouchableOpacity>
+                                    );
+                                }) : (
+                                    <Text className="px-4 py-3 text-gray-400">No branches available</Text>
+                                )}
+                            </ScrollView>
+                        </View>
+                    )}
                 </View>
 
                 {/* Mobile */}
@@ -120,7 +190,7 @@ export default function Register() {
                     )}
                 </TouchableOpacity>
 
-            </View>
+            </ScrollView>
         </View>
     );
 }

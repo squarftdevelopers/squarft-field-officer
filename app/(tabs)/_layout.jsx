@@ -52,8 +52,8 @@ function TabIcon({ name, focused }) {
 export default function TabsLayout() {
     const searchActive = useSelector((state) => state.app.searchActive);
     const insets = useSafeAreaInsets();
-    const androidBottomInset = Platform.OS === "android" ? Math.max(insets.bottom, 0) : 0;
     const iosBottomPadding = Platform.OS === "ios" ? Math.max(insets.bottom - 8, 6) : 8;
+    const androidBottomPadding = Math.max(insets.bottom, 8);
 
     return (
         <Tabs
@@ -75,15 +75,15 @@ export default function TabsLayout() {
                           position: "absolute",
                           left: 0,
                           right: 0,
-                          bottom: Platform.OS === "ios" ? 0 : androidBottomInset - 1,
+                          bottom: 0,
                           borderTopRightRadius: 45,
                           borderTopLeftRadius: 45,
                           borderTopColor: "transparent",
                           backgroundColor: "#fff",
                           paddingTop: 12,
                           paddingHorizontal: 15,
-                          paddingBottom: iosBottomPadding,
-                          height: Platform.OS === "ios" ? 88 : 82,
+                          paddingBottom: Platform.OS === "ios" ? iosBottomPadding : androidBottomPadding,
+                          height: Platform.OS === "ios" ? 88 : 74 + androidBottomPadding,
                           ...Platform.select({
                               ios: {
                                   shadowColor: "#000",

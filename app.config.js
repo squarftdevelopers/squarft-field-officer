@@ -1,3 +1,6 @@
+const path = require("node:path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
+
 module.exports = ({ config }) => {
   const googleMapsApiKey =
     process.env.GOOGLE_MAPS_API_KEY ||

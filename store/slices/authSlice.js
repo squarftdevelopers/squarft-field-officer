@@ -5,6 +5,8 @@ const authSlice = createSlice({
     initialState: {
         firstName: '',
         lastName: '',
+        branchId: '',
+        branchName: '',
         mobile: '',
         password: '',
         newPassword: '',
@@ -19,6 +21,10 @@ const authSlice = createSlice({
     reducers: {
         setFirstName: (state, action) => { state.firstName = action.payload; },
         setLastName: (state, action) => { state.lastName = action.payload; },
+        setBranch: (state, action) => {
+            state.branchId = action.payload.id;
+            state.branchName = action.payload.name;
+        },
         setMobile: (state, action) => { state.mobile = action.payload; },
         setPassword: (state, action) => { state.password = action.payload; },
         setNewPassword: (state, action) => { state.newPassword = action.payload; },
@@ -35,11 +41,13 @@ const authSlice = createSlice({
         setLoggedIn: (state, action) => { state.isLoggedIn = action.payload; },
         logout: (state) => {
             state.mobile = '';
+            state.branchId = '';
+            state.branchName = '';
             state.password = '';
             state.isLoggedIn = false;
         },
     },
 });
 
-export const { setFirstName, setLastName, setMobile, setPassword, setNewPassword, setConfirmPassword, setOtpDigit, clearOtp, setOtpFlow, setOtpToken, setVerifiedToken, toggleRememberMe, setLoggedIn, logout } = authSlice.actions;
+export const { setFirstName, setLastName, setBranch, setMobile, setPassword, setNewPassword, setConfirmPassword, setOtpDigit, clearOtp, setOtpFlow, setOtpToken, setVerifiedToken, toggleRememberMe, setLoggedIn, logout } = authSlice.actions;
 export default authSlice.reducer;

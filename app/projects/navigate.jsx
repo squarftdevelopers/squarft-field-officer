@@ -46,19 +46,8 @@ function decodePolyline(encoded) {
     return points;
 }
 
-function formatDistance(meters) {
-    if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
-    return `${Math.round(meters)} m`;
-}
-
-function formatDuration(seconds) {
-    const mins = Math.round(seconds / 60);
-    if (mins >= 60) return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-    return `${mins} min`;
-}
-
 export default function NavigateScreen() {
-    const { lat, lng, address, label, meetingId, leadId } = useLocalSearchParams();
+    const { lat, lng, address, label, meetingId, leadId, taskId } = useLocalSearchParams();
 
     const [destination, setDestination] = useState(
         lat && lng ? { latitude: parseFloat(lat), longitude: parseFloat(lng) } : null,
@@ -169,7 +158,7 @@ export default function NavigateScreen() {
                 if (!dest) {
                     Alert.alert(
                         "Location not found",
-                        `Could not locate "${cleanAddress}" on the map.\n\nAsk the officer to add a more specific address to this meeting.`,
+                        `Could not locate "${cleanAddress}" on the map.\n\nAsk the admin to add a more specific location.`,
                     );
                     setLoading(false);
                     return;
@@ -180,7 +169,7 @@ export default function NavigateScreen() {
             if (!dest) {
                 Alert.alert(
                     "No location set",
-                    "This meeting has no address or coordinates. Please edit the meeting and add a location.",
+                    "This item has no address or coordinates. Please add a location before navigating.",
                     [{ text: "Go Back", onPress: () => router.back() }],
                 );
                 setLoading(false);
@@ -234,9 +223,17 @@ export default function NavigateScreen() {
             if (meetingId && leadId) {
                 const { leadsAPI } = await import("../../services/api");
                 await leadsAPI.updateMeetingCompletion(leadId, meetingId, true);
+            } else if (taskId) {
+                const { tasksAPI } = await import("../../services/api");
+                await tasksAPI.markTaskComplete(taskId);
             }
-        } catch {
-            // Non-blocking — still go back
+        } catch (error) {
+            Alert.alert(
+                "Could not complete task",
+                error?.response?.data?.message || error.message || "Please try again.",
+            );
+            setCompleting(false);
+            return;
         } finally {
             setCompleting(false);
         }
@@ -353,7 +350,11 @@ export default function NavigateScreen() {
                     <View className="flex-row items-center px-4 py-2.5">
                         <Ionicons name="location-sharp" size={14} color="#EF4444" />
                         <Text className="ml-2 flex-1 text-[12px] text-[#374151]" numberOfLines={1}>
-                            {label || `${destLat.toFixed(5)}, ${destLng.toFixed(5)}`}
+                            {label ||
+                                address ||
+                                (destination
+                                    ? `${destination.latitude.toFixed(5)}, ${destination.longitude.toFixed(5)}`
+                                    : "Destination")}
                         </Text>
                     </View>
 
@@ -370,7 +371,7 @@ export default function NavigateScreen() {
                             <>
                                 <Ionicons name="checkmark-circle" size={18} color="#fff" />
                                 <Text className="ml-2 text-[14px] font-lato-bold text-white">
-                                    Complete Visit
+                                    {taskId ? "Complete Task" : "Complete Visit"}
                                 </Text>
                             </>
                         )}

@@ -10,7 +10,7 @@ const logo = require("../../assets/icons/app-icon.png");
 
 export default function OtpVerification() {
     const dispatch = useDispatch();
-    const { otp, otpFlow, otpToken, mobile, firstName, lastName } = useSelector((state) => state.auth);
+    const { otp, otpFlow, otpToken, mobile, firstName, lastName, branchId } = useSelector((state) => state.auth);
     const inputs = useRef([]);
     const autoSubmittedRef = useRef(false);
     const [loading, setLoading] = useState(false);
@@ -87,6 +87,7 @@ export default function OtpVerification() {
                     response.verified_token,
                     firstName.trim(),
                     lastName.trim(),
+                    branchId,
                 );
                 const kycStatus = registration.user?.kyc_status || 'missing';
                 if (kycStatus === 'verified') {
@@ -108,7 +109,7 @@ export default function OtpVerification() {
         } finally {
             setLoading(false);
         }
-    }, [dispatch, firstName, lastName, otp, otpFlow, otpToken]);
+    }, [branchId, dispatch, firstName, lastName, otp, otpFlow, otpToken]);
 
     useEffect(() => {
         const otpCode = otp.join('');

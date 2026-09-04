@@ -67,11 +67,12 @@ export const authAPI = {
     return data;
   },
 
-  register: async (verified_token, first_name, last_name, location) => {
+  register: async (verified_token, first_name, last_name, branch_id, location) => {
     const { data } = await api.post('/api/v1/field-officer/auth/register', {
       verified_token,
       first_name,
       last_name,
+      branch_id,
       location: location || null,
     });
     if (data.token) {
@@ -336,7 +337,7 @@ export const kycAPI = {
 
 export const tasksAPI = {
   getMyTasks: async (filters = {}) => {
-    const params = {};
+    const params = { limit: 50 };
     if (filters.status && filters.status !== 'all') {
       params.status = filters.status.toUpperCase();
     }
