@@ -11,10 +11,11 @@ import {
     useAudioRecorderState,
 } from "expo-audio";
 import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import { router, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Modal, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Linking, Modal, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -56,24 +57,20 @@ const meetingToneStyles = {
 
 const followUpTypes = ["Call", "Site Visit", "Office Visit", "Video Call"];
 const followUpOutcomes = [
-    "No Response",
-    "Call Later",
-    "Builder Busy",
+    "Connected",
+    "Not Reachable",
     "Interested",
     "Need More Time",
-    "Meeting Required",
-    "Site Visit Required",
-    "Documents Asked",
-    "Pricing Discussion Pending",
     "Not Interested",
-    "Onboarding Ready",
+    "Documents Pending",
+    "Meeting Requested",
 ];
 const followUpActions = ["Schedule another call", "Schedule meeting", "Send company profile", "Collect documents", "Start onboarding"];
-const followUpStatuses = ["Hot", "Warm", "Docs Pending", "Overdue", "Done"];
+const followUpStatuses = ["Hot", "Warm", "Cold", "Suspended"];
 const meetingTypes = ["Site Meeting", "Builder Office", "SquarFT Office", "Phone", "Video Call"];
-const meetingStatuses = ["Scheduled", "Today", "Tomorrow", "Planned", "Done"];
+const meetingStatuses = ["Scheduled", "Rescheduled", "Completed", "Cancelled", "No Show"];
 const meetingAgenda = ["Company Introduction", "Project Collaboration Discussion", "Pricing Discussion", "Inventory Collection", "Document Collection"];
-const reminderOptions = ["30 minutes before", "1 hour before", "2 hours before", "1 day before"];
+const reminderOptions = ["No reminder", "15 minutes before", "30 minutes before", "1 hour before", "2 hours before", "1 day before"];
 const projectJourneyTemplate = [
     "New Lead Added",
     "First Contact",
@@ -396,23 +393,53 @@ function FollowUpForm({ project, onSave, submitting }) {
     const isPlayingVoiceNote = voicePlayerStatus.playing;
 
     const pickSitePhoto = async () => {
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        const [cameraPermission, locationPermission] = await Promise.all([
+            ImagePicker.requestCameraPermissionsAsync(),
+            Location.requestForegroundPermissionsAsync(),
+        ]);
+        if (!cameraPermission.granted) {
+            Alert.alert("Camera permission needed", "Allow camera access to capture site proof.");
+            return;
+        }
+        if (!locationPermission.granted) {
+            Alert.alert("Location permission needed", "Site proof requires the capture location.");
+            return;
+        }
 
-        if (!permission.granted) return;
-
-        const result = await ImagePicker.launchImageLibraryAsync({
+        const result = await ImagePicker.launchCameraAsync({
             mediaTypes: ['images'],
             quality: 0.75,
         });
 
         if (!result.canceled) {
-            setSitePhoto(result.assets[0]);
+            try {
+                const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+                const { latitude, longitude } = position.coords;
+                const addresses = await Location.reverseGeocodeAsync({ latitude, longitude });
+                const address = addresses[0];
+                const formattedAddress = address
+                    ? [address.name, address.street, address.district, address.city, address.region, address.postalCode].filter(Boolean).join(", ")
+                    : `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+                setSitePhoto({
+                    ...result.assets[0],
+                    latitude,
+                    longitude,
+                    address: formattedAddress,
+                    capturedAt: new Date().toISOString(),
+                });
+            } catch (_error) {
+                Alert.alert("Location unavailable", "The photo was not attached because its GPS location could not be captured. Please try again outdoors.");
+            }
         }
     };
 
     const handleSave = () => {
         if (!outcome) {
             Alert.alert("Missing field", "Please select an outcome.");
+            return;
+        }
+        if (nextDate.getTime() < Date.now() - 60_000) {
+            Alert.alert("Invalid date", "Next follow-up must be scheduled in the future.");
             return;
         }
         onSave({
@@ -681,7 +708,7 @@ function FollowUpForm({ project, onSave, submitting }) {
                     <View className="ml-2">
                         <Text className="text-[11px] font-lato-bold text-[#111827]">Add Site Photo Proof</Text>
                         <Text className="text-[9px] text-[#64748B]">
-                            {sitePhoto ? sitePhoto.fileName || "Photo selected" : "With auto location + timestamp"}
+                            {sitePhoto ? `${sitePhoto.fileName || "Photo captured"} · GPS attached` : "Capture with GPS location + timestamp"}
                         </Text>
                     </View>
                 </View>
@@ -721,6 +748,18 @@ function MeetingForm({ project, onSave, submitting }) {
 
     const handleSave = () => {
         const scheduledAt = buildDateTime(meetingDate, meetingTime);
+        if (!location.trim()) {
+            Alert.alert("Missing location", "Enter the meeting address or location.");
+            return;
+        }
+        if (!selectedAgenda.length) {
+            Alert.alert("Missing agenda", "Select at least one agenda item.");
+            return;
+        }
+        if (!["Completed", "Cancelled", "No Show"].includes(meetingStatus) && scheduledAt.getTime() < Date.now() - 60_000) {
+            Alert.alert("Invalid date", "Scheduled meetings must be in the future.");
+            return;
+        }
 
         onSave({
             id: `meeting-${project.id}-${Date.now()}`,
@@ -906,9 +945,6 @@ function ProjectJourney({ items }) {
 
 function Overview({ project, onReject }) {
     const typeStyle = typeStyles[project.type] ?? typeStyles.Warm;
-    const hasCompletedFollowUp = (project.followUps || []).some((item) => item.isDone || item.status === "Done");
-    const hasCompletedMeeting = (project.meetings || []).some((item) => item.isDone || item.status === "Done");
-    const canContinueOnboarding = hasCompletedFollowUp && hasCompletedMeeting;
     const isOnboardingComplete = project.projectLastCompletedStep >= 6;
 
     // Button state logic:
@@ -920,16 +956,18 @@ function Overview({ project, onReject }) {
     const projectInfo = [
         ["Builder", project.developerName],
         ["Contact Person", project.contactPerson],
-        ["Type", project.projectType],
         ["Contact", project.phoneNumber],
-        ["WhatsApp", project.whatsappNumber],
+        ["Project Category", project.category],
+        ["Property Type", project.projectType],
+        ["Project Status", project.projectStatus],
         ["City", project.city],
-        ["Area", project.area || project.location],
-        ["Colony / Landmark", project.colony],
-        ["Address", project.fullAddress],
+        ["Location", [project.location, project.city, project.state, project.pincode].filter(Boolean).join(", ")],
+        ["Price Range", project.priceRange],
+        ["Possession", project.possessionStatus],
+        ["Total Area", project.totalArea],
+        ["Development", project.developmentProgress != null ? `${project.developmentProgress}%` : ""],
         ["Added", project.addedOn],
         ["Lead Type", project.type],
-        ["Notes", project.builderNotes],
     ].filter(([, value]) => Boolean(value));
     const onboardingDraftForm = project.onboardingDraft?.form;
     const propertyTypes = project.onboardingData?.propertyTypes ?? onboardingDraftForm?.step2?.selectedTypes;
@@ -965,6 +1003,14 @@ function Overview({ project, onReject }) {
                 </View>
             </Section>
 
+            {(project.projectDescription || project.builderNotes || project.initialVoiceNoteUrl) ? (
+                <Section title="Lead Details">
+                    {project.projectDescription ? <Text className="mb-2 text-[11px] leading-5 text-[#475569]">{project.projectDescription}</Text> : null}
+                    {project.builderNotes ? <View className="rounded-[10px] bg-[#F8F9FF] p-3"><Text className="text-[10px] font-lato-bold uppercase tracking-[1px] text-[#64748B]">Initial Notes</Text><Text className="mt-1.5 text-[11px] leading-5 text-[#111827]">{project.builderNotes}</Text></View> : null}
+                    {project.initialVoiceNoteUrl ? <TouchableOpacity onPress={() => openUrl(project.initialVoiceNoteUrl)} className="mt-2 h-10 flex-row items-center justify-center rounded-[10px] bg-[#EEEFFF]"><Ionicons name="play-circle-outline" size={17} color="#4A43EC" /><Text className="ml-2 text-[11px] font-lato-bold text-[#4A43EC]">Play Initial Voice Note{project.initialVoiceNoteDuration ? ` · ${formatDuration(project.initialVoiceNoteDuration)}` : ""}</Text></TouchableOpacity> : null}
+                </Section>
+            ) : null}
+
             <Section
                 title="Onboarding Progress"
                 action={<Text className="text-[13px] font-lato-bold text-[#4A43EC]">{project.onboardingProgress || 0}%</Text>}
@@ -980,7 +1026,11 @@ function Overview({ project, onReject }) {
                         ))}
                     </View>
                 ) : null}
-                <View className="mt-3 flex-row" style={{ columnGap: 8 }}>
+                {project.statusType === "rejected" ? (
+                    <View className="mt-3 rounded-[10px] bg-[#FEE2E2] px-3 py-2.5">
+                        <Text className="text-center text-[11px] font-lato-bold text-[#B91C1C]">This lead is rejected and can no longer be updated.</Text>
+                    </View>
+                ) : <View className="mt-3 flex-row" style={{ columnGap: 8 }}>
                     {isOnboardingComplete ? (
                         <TouchableOpacity
                             activeOpacity={0.85}
@@ -1016,7 +1066,7 @@ function Overview({ project, onReject }) {
                     >
                         <Text className="text-[12px] font-lato-bold text-[#B91C1C]">Reject Lead</Text>
                     </TouchableOpacity>
-                </View>
+                </View>}
                 {!linkedProjectId ? (
                     <Text className="mt-2 text-center text-[10px] text-[#64748B]">
                         (At least 1 follow-up and 1 meeting is recommended but you can continue without them)
@@ -1044,7 +1094,7 @@ function Overview({ project, onReject }) {
 
 
 
-function FollowUpCard({ item, projectName, onDone }) {
+function FollowUpCard({ item, projectName, phoneNumber, onDone }) {
     const tone = followUpToneStyles[item.tone] ?? followUpToneStyles.warning;
 
     return (
@@ -1072,11 +1122,16 @@ function FollowUpCard({ item, projectName, onDone }) {
             </View>
             <View className="mt-2 rounded-[9px] bg-[#F8F9FF] px-2.5 py-2">
                 <Text className="text-[10px] leading-4 text-[#4B5563]">{item.note}</Text>
+                {item.meta?.outcome ? <Text className="mt-1 text-[9px] font-lato-bold text-[#64748B]">Outcome: {item.meta.outcome.replace(/_/g, " ")}</Text> : null}
+                {item.meta?.nextAction ? <Text className="mt-1 text-[9px] text-[#64748B]">Next: {item.meta.nextAction.replace(/_/g, " ")}</Text> : null}
             </View>
+            {(item.voice_note_url || item.site_photo_url) ? <View className="mt-2 flex-row" style={{ columnGap: 8 }}>{item.voice_note_url ? <TouchableOpacity onPress={() => openUrl(item.voice_note_url)} className="h-9 flex-1 flex-row items-center justify-center rounded-[9px] bg-[#EEEFFF]"><Ionicons name="play-circle-outline" size={15} color="#4A43EC" /><Text className="ml-1.5 text-[10px] font-lato-bold text-[#4A43EC]">Voice {item.voice_note_duration_ms ? formatDuration(item.voice_note_duration_ms) : "note"}</Text></TouchableOpacity> : null}{item.site_photo_url ? <TouchableOpacity onPress={() => openUrl(item.site_photo_url)} className="h-9 flex-1 flex-row items-center justify-center overflow-hidden rounded-[9px] bg-[#ECFDF5]"><Image source={{ uri: item.site_photo_url }} className="h-9 w-9" /><Text className="ml-1.5 text-[10px] font-lato-bold text-[#047857]">Site proof</Text></TouchableOpacity> : null}</View> : null}
+            {item.sitePhotoAddress ? <Text className="mt-1.5 text-[9px] text-[#64748B]">Photo location: {item.sitePhotoAddress}</Text> : null}
+            {item.sitePhotoCapturedAt ? <Text className="mt-1 text-[9px] text-[#94A3B8]">Captured: {new Date(item.sitePhotoCapturedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</Text> : null}
             <View className="mt-2 flex-row items-center">
                 <TouchableOpacity
                     activeOpacity={0.85}
-                    onPress={() => openUrl(`tel:${item.phoneNumber}`)}
+                    onPress={() => phoneNumber ? openUrl(`tel:${phoneNumber}`) : Alert.alert("Phone unavailable", "Builder phone number is not available.")}
                     className="mr-2 h-8 flex-1 flex-row items-center justify-center rounded-[9px] bg-[#4A43EC]"
                 >
                     <Ionicons name="call" size={12} color="#fff" />
@@ -1138,18 +1193,19 @@ function MeetingCard({ item, projectName, projectId, onDone }) {
                 <Text className="text-[10px] text-[#6B7280]">{item.time}</Text>
             </View>
             <View className="mt-2 rounded-[9px] bg-[#F8F9FF] px-2.5 py-2">
-                <Text className="text-[10px] leading-4 text-[#4B5563]">
-                    Meet at {item.location} for {item.type.toLowerCase()}.
-                </Text>
+                <Text className="text-[10px] leading-4 text-[#4B5563]">{item.meta?.notes || `Meet at ${item.location} for ${item.type.toLowerCase()}.`}</Text>
+                {item.meta?.agenda?.length ? <Text className="mt-1 text-[9px] text-[#64748B]">Agenda: {item.meta.agenda.map((value) => String(value).replace(/_/g, " ")).join(", ")}</Text> : null}
+                <Text className="mt-1 text-[9px] text-[#64748B]">Reminder: {Number(item.meta?.reminder || 0) ? `${item.meta.reminder} minutes before` : "None"}</Text>
             </View>
             <View className="mt-2 flex-row items-center">
                 <TouchableOpacity
                     activeOpacity={0.85}
-                    onPress={() => onDone(item.id)}
-                    className="mr-2 h-8 flex-1 flex-row items-center justify-center rounded-[9px] bg-[#4A43EC]"
+                    onPress={() => !item.isDone && onDone(item.id)}
+                    disabled={item.isDone}
+                    className={`mr-2 h-8 flex-1 flex-row items-center justify-center rounded-[9px] ${item.isDone ? "bg-[#DCFCE7]" : "bg-[#4A43EC]"}`}
                 >
-                    <Ionicons name="checkmark" size={12} color="#fff" />
-                    <Text className="ml-1.5 text-[11px] font-lato-bold text-white">
+                    <Ionicons name="checkmark" size={12} color={item.isDone ? "#16A34A" : "#fff"} />
+                    <Text className={`ml-1.5 text-[11px] font-lato-bold ${item.isDone ? "text-[#16A34A]" : "text-white"}`}>
                         {item.isDone ? "Completed" : "Done"}
                     </Text>
                 </TouchableOpacity>
@@ -1194,7 +1250,7 @@ function Activity({ project, activeActivityTab, onActivityTabChange, onActivityD
 
             {items.map((item) =>
                 activeActivityTab === "followUp" ? (
-                    <FollowUpCard key={item.id} item={item} projectName={project.projectName} onDone={(activityId) => onActivityDone("followUp", activityId)} />
+                    <FollowUpCard key={item.id} item={item} projectName={project.projectName} phoneNumber={project.phoneNumber} onDone={(activityId) => onActivityDone("followUp", activityId)} />
                 ) : (
                     <MeetingCard key={item.id} item={item} projectName={project.projectName} projectId={project.id} onDone={(activityId) => onActivityDone("meeting", activityId)} />
                 ),
@@ -1237,7 +1293,13 @@ const normalizeFollowUps = (apiFollowUps = []) =>
         tone: f.follow_up_status === "hot" ? "hot" : f.follow_up_status === "cold" ? "warning" : "warning",
         isDone: f.is_completed === true,
         voice_note_url: f.voice_note_url || null,
+        voice_note_duration_ms: f.voice_note_duration_ms || 0,
         site_photo_url: f.site_photo_url || null,
+        sitePhotoLatitude: f.site_photo_latitude,
+        sitePhotoLongitude: f.site_photo_longitude,
+        sitePhotoAddress: f.site_photo_address || "",
+        sitePhotoCapturedAt: f.site_photo_captured_at,
+        createdAt: f.created_at,
         meta: {
             followUpType: f.follow_up_type,
             outcome: f.outcome,
@@ -1256,13 +1318,16 @@ const normalizeMeetings = (apiMeetings = []) =>
             ? m.meeting_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
             : "Meeting",
         time: m.meeting_at
-            ? new Date(m.meeting_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+            ? new Date(m.meeting_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit" })
             : "",
-        status: m.meeting_status
+        status: m.is_completed === true
+            ? "Completed"
+            : m.meeting_status
             ? m.meeting_status.charAt(0).toUpperCase() + m.meeting_status.slice(1)
             : "Scheduled",
-        tone: m.meeting_status === "completed" ? "success" : "primary",
-        isDone: m.meeting_status === "completed",
+        tone: m.meeting_status === "completed" || m.is_completed === true ? "success" : "primary",
+        isDone: m.meeting_status === "completed" || m.is_completed === true,
+        createdAt: m.created_at,
         meta: {
             scheduledAt: m.meeting_at,
             agenda: m.agenda || [],
@@ -1286,7 +1351,7 @@ const normalizeApiLead = (d, journey = [], follow_ups = [], meetings = []) => {
         contactPerson: d.contact_person || "",
         phoneNumber: d.contact_number || d.phoneNumber || "",
         city: d.city || "",
-        location: d.area || d.location || "",
+        location: d.location || d.area || "",
         area: d.area || "",
         colony: d.colony_landmark || "",
         fullAddress: d.full_address || "",
@@ -1302,7 +1367,7 @@ const normalizeApiLead = (d, journey = [], follow_ups = [], meetings = []) => {
             }
             return pts && Array.isArray(pts) && pts.length > 0
                 ? pts.map(t => [t.main_type || t.category, t.sub_type || t.projectType, t.configuration || t.subType].filter(Boolean).join(" - ")).join(" | ")
-                : [d.property_category, d.property_subtype, d.configuration].filter(Boolean).join(" . ");
+                : [d.project_type, d.property_subtype, d.configuration].filter(Boolean).join(" · ");
         })(),
         type: d.lead_temperature
             ? d.lead_temperature.charAt(0).toUpperCase() + d.lead_temperature.slice(1)
@@ -1316,7 +1381,22 @@ const normalizeApiLead = (d, journey = [], follow_ups = [], meetings = []) => {
         addedOn: d.created_at
             ? new Date(d.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
             : "",
-        builderNotes: d.remarks || "",
+        builderNotes: d.initial_notes || "",
+        projectDescription: d.project_description || "",
+        projectStatus: d.project_status || "",
+        state: d.state || "",
+        pincode: d.pincode || "",
+        latitude: d.latitude,
+        longitude: d.longitude,
+        priceRange: d.price_from || d.price_to
+            ? [d.price_from, d.price_to].filter((value) => value != null).map((value) => `₹${Number(value).toLocaleString("en-IN")}`).join(" – ")
+            : "",
+        possessionStatus: d.possession_status || "",
+        developmentProgress: d.development_progress,
+        totalArea: d.total_area ? `${d.total_area}${d.area_unit ? ` ${d.area_unit}` : ""}` : "",
+        coverImageUrl: d.cover_image_url || "",
+        initialVoiceNoteUrl: d.voice_note_url || "",
+        initialVoiceNoteDuration: d.voice_note_duration_ms || 0,
         journeyStage: displayStage,
         onboardingProgress: d.onboarding_progress || 0,
         linkedProjectId: d.project_id || null,
@@ -1338,6 +1418,7 @@ export default function ProjectDetail() {
     const [activeActivityTab, setActiveActivityTab] = useState("followUp");
     const [activeSheet, setActiveSheet] = useState("followUp");
     const [submitting, setSubmitting] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const bottomSheetRef = useRef(null);
     const sheetSnapPoints = useMemo(() => ["92%"], []);
     const reduxProject = useSelector((state) => selectProjectById(state, projectId));
@@ -1353,51 +1434,24 @@ export default function ProjectDetail() {
     });
     const [apiLoading, setApiLoading] = useState(!reduxProject);
 
-    // Merge updated lead fields from any API response into apiProject
-    const applyLeadUpdate = useCallback((updatedLead, extraFields = {}) => {
-        if (!updatedLead) return;
-        const displayStage = stageDisplayMap[updatedLead.stage] || "New Lead Added";
-        setApiProject((prev) => {
-            if (!prev) return prev;
-            const alreadyHas = (prev.stageHistory || []).some((s) => s.stage === displayStage);
-            return {
-                ...prev,
-                statusType: updatedLead.stage || prev.statusType,
-                status: updatedLead.stage ? updatedLead.stage.replace(/_/g, " ") : prev.status,
-                journeyStage: displayStage,
-                type: updatedLead.lead_temperature
-                    ? updatedLead.lead_temperature.charAt(0).toUpperCase() + updatedLead.lead_temperature.slice(1)
-                    : prev.type,
-                nextAction: updatedLead.next_action || prev.nextAction,
-                onboardingProgress: updatedLead.onboarding_progress ?? prev.onboardingProgress,
-                stageHistory: alreadyHas
-                    ? prev.stageHistory
-                    : [...(prev.stageHistory || []), {
-                        stage: displayStage,
-                        note: extraFields.note || "",
-                        at: new Date().toISOString(),
-                    }],
-                ...extraFields,
-            };
-        });
-    }, []);
-
-    // Always fetch from API to get latest follow_ups + meetings with lead_id
-    useEffect(() => {
-        setApiLoading(!reduxProject);
-        leadsAPI.getLeadDetails(projectId)
-            .then((res) => {
-                const inner = res?.data || res || {};
-                const { lead, journey, follow_ups, meetings } = inner;
-                if (lead) {
-                    setApiProject(normalizeApiLead(lead, journey || [], follow_ups || [], meetings || []));
-                }
-            })
-            .catch((err) => {
-                console.log("getLeadDetails error", err?.response?.data || err?.message);
-            })
-            .finally(() => setApiLoading(false));
+    const loadProjectDetails = useCallback(async (isRefresh = false) => {
+        if (isRefresh) setRefreshing(true);
+        else setApiLoading(!reduxProject);
+        try {
+            const res = await leadsAPI.getLeadDetails(projectId);
+            const inner = res?.data || res || {};
+            const { lead, journey, follow_ups, meetings } = inner;
+            if (lead) setApiProject(normalizeApiLead(lead, journey || [], follow_ups || [], meetings || []));
+        } catch (err) {
+            console.log("getLeadDetails error", err?.response?.data || err?.message);
+            if (isRefresh) Alert.alert("Refresh failed", err?.response?.data?.message || "Could not refresh project details.");
+        } finally {
+            setApiLoading(false);
+            setRefreshing(false);
+        }
     }, [projectId, reduxProject]);
+
+    useEffect(() => { loadProjectDetails(); }, [loadProjectDetails]);
 
     const project = useMemo(
         () => apiProject || reduxProject,
@@ -1427,9 +1481,7 @@ export default function ProjectDetail() {
             "Hot":          "hot",
             "Warm":         "warm",
             "Cold":         "cold",
-            "Docs Pending": "warm",   // no direct equivalent → warm
-            "Overdue":      "cold",   // treat overdue as cold
-            "Done":         "warm",   // completed state → warm fallback
+            "Suspended":     "suspended",
         };
 
         // Map UI next-action labels → backend enum values
@@ -1460,17 +1512,13 @@ export default function ProjectDetail() {
         // Backend accepts: connected | not_reachable | interested | need_more_time |
         //                  not_interested | documents_pending | meeting_requested
         const outcomeValueMap = {
-            "No Response":               "not_reachable",
-            "Call Later":                "need_more_time",
-            "Builder Busy":              "not_reachable",
+            "Connected":                 "connected",
+            "Not Reachable":             "not_reachable",
             "Interested":                "interested",
             "Need More Time":            "need_more_time",
-            "Meeting Required":          "meeting_requested",
-            "Site Visit Required":       "meeting_requested",
-            "Documents Asked":           "documents_pending",
-            "Pricing Discussion Pending":"need_more_time",
             "Not Interested":            "not_interested",
-            "Onboarding Ready":          "interested",
+            "Documents Pending":         "documents_pending",
+            "Meeting Requested":         "meeting_requested",
         };
         const outcome = outcomeValueMap[meta.outcome] || "connected";
 
@@ -1493,10 +1541,19 @@ export default function ProjectDetail() {
         form.append("next_follow_up_at", meta.nextFollowUpAt);
         if (followUp.note) form.append("remarks", followUp.note);
         if (voiceNoteFile) {
+            form.append("voice_note_duration_ms", String(meta.voiceNoteDuration || 0));
             form.append("voice_note", { uri: voiceNoteFile.uri, name: "voice_note.m4a", type: "audio/m4a" });
         }
         if (sitePhotoFile) {
-            form.append("site_photo", { uri: sitePhotoFile.uri, name: "site_photo.jpg", type: "image/jpeg" });
+            form.append("site_photo_latitude", String(meta.sitePhoto.latitude));
+            form.append("site_photo_longitude", String(meta.sitePhoto.longitude));
+            form.append("site_photo_address", meta.sitePhoto.address || "");
+            form.append("site_photo_captured_at", meta.sitePhoto.capturedAt);
+            form.append("site_photo", {
+                uri: sitePhotoFile.uri,
+                name: meta.sitePhoto.fileName || "site_photo.jpg",
+                type: meta.sitePhoto.mimeType || "image/jpeg",
+            });
         }
         return form;
     };
@@ -1572,10 +1629,10 @@ export default function ProjectDetail() {
                 };
                 const meetingStatusValueMap = {
                     "Scheduled": "scheduled",
-                    "Today": "scheduled",
-                    "Tomorrow": "scheduled",
-                    "Planned": "scheduled",
-                    "Done": "completed",
+                    "Rescheduled": "rescheduled",
+                    "Completed": "completed",
+                    "Cancelled": "cancelled",
+                    "No Show": "no_show",
                 };
                 const payload = {
                     meeting_type: meetingTypeValueMap[meeting.type] || "site_meeting",
@@ -1685,8 +1742,23 @@ export default function ProjectDetail() {
     );
 
     const rejectLead = useCallback(() => {
-        dispatch(rejectProjectLead(projectId));
-    }, [dispatch, projectId]);
+        Alert.alert("Reject project lead?", "This stops further follow-ups, meetings, and onboarding for this lead.", [
+            { text: "Cancel", style: "cancel" },
+            {
+                text: "Reject Lead",
+                style: "destructive",
+                onPress: async () => {
+                    try {
+                        await leadsAPI.rejectLead(projectId);
+                        dispatch(rejectProjectLead(projectId));
+                        await loadProjectDetails(true);
+                    } catch (error) {
+                        Alert.alert("Could not reject lead", error?.response?.data?.message || "Please try again.");
+                    }
+                },
+            },
+        ]);
+    }, [dispatch, loadProjectDetails, projectId]);
 
     if (!project) {
         return (
@@ -1804,7 +1876,12 @@ export default function ProjectDetail() {
                             })}
                         </View>
 
-                        <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
+                        <ScrollView
+                            className="flex-1"
+                            contentContainerStyle={{ paddingBottom: 28 }}
+                            showsVerticalScrollIndicator={false}
+                            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadProjectDetails(true)} colors={["#4A43EC"]} tintColor="#4A43EC" />}
+                        >
                             {activeTab === "overview" ? (
                                 <Overview project={project} onReject={rejectLead} />
                             ) : (

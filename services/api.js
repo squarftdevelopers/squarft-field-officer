@@ -149,8 +149,15 @@ export const projectsAPI = {
 };
 
 export const leadsAPI = {
+  getFormOptions: async () => {
+    const { data } = await api.get('/api/v1/field-officer/leads/form-options');
+    return data;
+  },
   createLead: async (payload) => {
-    const { data } = await api.post('/api/v1/field-officer/leads', payload);
+    const { data } = await api.post('/api/v1/field-officer/leads', payload, {
+      timeout: 60000,
+      ...(payload instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
+    });
     return data;
   },
   getLeads: async ({ search, stage } = {}) => {

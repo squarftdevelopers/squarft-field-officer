@@ -128,6 +128,7 @@ export default function Profile() {
     const dispatch = useDispatch();
     const { profile, performanceThisMonth, reportingManager, loading, error } = useSelector((state) => state.profile);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
 
     useFocusEffect(
         useCallback(() => {
@@ -135,7 +136,14 @@ export default function Profile() {
         }, [dispatch]),
     );
 
-    const refreshProfile = () => dispatch(fetchOfficerProfile());
+    const refreshProfile = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            await dispatch(fetchOfficerProfile());
+        } finally {
+            setRefreshing(false);
+        }
+    }, [dispatch]);
 
     const pickAndUploadPhoto = async (useCamera) => {
         try {
@@ -283,7 +291,7 @@ export default function Profile() {
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl
-                        refreshing={loading && Boolean(profile)}
+                        refreshing={refreshing}
                         onRefresh={refreshProfile}
                         tintColor="#4A43EC"
                         colors={["#4A43EC"]}

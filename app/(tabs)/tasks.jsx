@@ -152,7 +152,12 @@ export default function Tasks() {
                         contentContainerStyle={{ paddingBottom: 108, paddingHorizontal: 16, paddingTop: 12 }}
                         showsVerticalScrollIndicator={false}
                         refreshControl={
-                            <RefreshControl refreshing={refreshing} onRefresh={() => fetchTasks(true)} colors={[PURPLE]} />
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={() => fetchTasks(true)}
+                                colors={[PURPLE]}
+                                tintColor={PURPLE}
+                            />
                         }
                     >
                         {loading ? (

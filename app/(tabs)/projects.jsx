@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Linking, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Linking, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch } from "react-redux";
 import { projectFilters } from "../../data/projectsData";
@@ -173,6 +173,14 @@ export default function Projects() {
                     contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 106, paddingTop: 2 }}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={() => fetchLeads(query, activeFilter, true)}
+                            colors={["#4A43EC"]}
+                            tintColor="#4A43EC"
+                        />
+                    }
                 >
                     {loading ? (
                         <>

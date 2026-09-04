@@ -419,7 +419,12 @@ export default function Home() {
                     contentContainerStyle={{ minHeight: 570, paddingBottom: 120, paddingTop: notchHeight + 18 }}
                     showsVerticalScrollIndicator={false}
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={["#4A43EC"]}
+                            tintColor="#4A43EC"
+                        />
                     }
                 >
                     {/* Skeleton cards while loading for the first time */}
