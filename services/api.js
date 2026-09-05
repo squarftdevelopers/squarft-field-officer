@@ -369,4 +369,17 @@ export const tasksAPI = {
   },
 };
 
+export const projectRequestsAPI = {
+  getRequests: async (status) => {
+    const { data } = await api.get('/api/v1/field-officer/project-requests', {
+      params: status && status !== 'all' ? { status } : undefined,
+    });
+    return data;
+  },
+  respond: async (requestId, action) => {
+    const { data } = await api.patch(`/api/v1/field-officer/project-requests/${requestId}/respond`, { action });
+    return data;
+  },
+};
+
 export default api;
