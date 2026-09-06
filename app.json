@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kartik2611mishra.squarftfieldofficer"
+      "bundleIdentifier": "com.kartik2611mishra.squarftfieldofficer",
+      "config": {
+        "googleMapsApiKey": "AIzaSyDiYnY4FG1juihWvHEgM-NSz2aEKUsKing"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,8 +24,15 @@
       "package": "com.kartik2611mishra.squarftfieldofficer",
       "permissions": [
         "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
-      ]
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDiYnY4FG1juihWvHEgM-NSz2aEKUsKing"
+        }
+      }
     },
     "web": {
       "output": "static",
@@ -57,6 +67,19 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "googleMapsApiKey": "AIzaSyDiYnY4FG1juihWvHEgM-NSz2aEKUsKing",
+      "router": {},
+      "eas": {
+        "projectId": "47957612-4b27-42fc-8ce2-14f8b16c8313"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/47957612-4b27-42fc-8ce2-14f8b16c8313"
     }
   }
 }
