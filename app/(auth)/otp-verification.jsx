@@ -3,7 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { setOtpDigit, clearOtp, setLoggedIn, setVerifiedToken, setOtpToken } from "../../store/slices/authSlice";
+import { setOtpDigit, clearOtp, setLoggedIn, setKycState, setVerifiedToken, setOtpToken } from "../../store/slices/authSlice";
 import { authAPI } from "../../services/api";
 
 const logo = require("../../assets/icons/app-icon.png");
@@ -68,18 +68,13 @@ export default function OtpVerification() {
             } else if (otpFlow === 'login') {
                 const login = await authAPI.login(response.verified_token);
                 const kycStatus = login.user?.kyc_status || 'missing';
+                dispatch(setKycState(kycStatus));
+                dispatch(setLoggedIn(true));
 
                 if (kycStatus === 'verified') {
-                    dispatch(setLoggedIn(true));
                     router.replace("/(tabs)/home");
                 } else {
-                    router.replace({
-                        pathname: "/(auth)/kyc",
-                        params: {
-                            status: kycStatus,
-                            rejectionReason: login.user?.rejection_reason || '',
-                        },
-                    });
+                    router.replace("/(tabs)/home");
                 }
             } else if (otpFlow === 'register') {
                 dispatch(setVerifiedToken(response.verified_token));
@@ -90,17 +85,12 @@ export default function OtpVerification() {
                     branchId,
                 );
                 const kycStatus = registration.user?.kyc_status || 'missing';
+                dispatch(setKycState(kycStatus));
+                dispatch(setLoggedIn(true));
                 if (kycStatus === 'verified') {
-                    dispatch(setLoggedIn(true));
                     router.replace("/(tabs)/home");
                 } else {
-                    router.replace({
-                        pathname: "/(auth)/kyc",
-                        params: {
-                            status: kycStatus,
-                            rejectionReason: registration.user?.rejection_reason || '',
-                        },
-                    });
+                    router.replace("/(tabs)/home");
                 }
             }
             dispatch(clearOtp());

@@ -17,6 +17,8 @@ const authSlice = createSlice({
         verifiedToken: '',
         rememberMe: false,
         isLoggedIn: false,
+        isKycCompleted: false,
+        kycStatus: 'missing',
     },
     reducers: {
         setFirstName: (state, action) => { state.firstName = action.payload; },
@@ -39,6 +41,10 @@ const authSlice = createSlice({
         setVerifiedToken: (state, action) => { state.verifiedToken = action.payload; },
         toggleRememberMe: (state) => { state.rememberMe = !state.rememberMe; },
         setLoggedIn: (state, action) => { state.isLoggedIn = action.payload; },
+        setKycState: (state, action) => {
+            state.kycStatus = action.payload || 'missing';
+            state.isKycCompleted = ['verified', 'approved'].includes(String(action.payload || '').toLowerCase());
+        },
         logout: (state) => {
             state.mobile = '';
             state.branchId = '';
@@ -49,5 +55,5 @@ const authSlice = createSlice({
     },
 });
 
-export const { setFirstName, setLastName, setBranch, setMobile, setPassword, setNewPassword, setConfirmPassword, setOtpDigit, clearOtp, setOtpFlow, setOtpToken, setVerifiedToken, toggleRememberMe, setLoggedIn, logout } = authSlice.actions;
+export const { setFirstName, setLastName, setBranch, setMobile, setPassword, setNewPassword, setConfirmPassword, setOtpDigit, clearOtp, setOtpFlow, setOtpToken, setVerifiedToken, toggleRememberMe, setLoggedIn, setKycState, logout } = authSlice.actions;
 export default authSlice.reducer;

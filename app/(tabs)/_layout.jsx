@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { Animated, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
+import KycModal from "../../components/KycModal";
 
 const TAB_COLOR = "#4A43EC";
 const MUTED_TAB_COLOR = "#94A3B8";
@@ -57,6 +58,7 @@ export default function TabsLayout() {
     const androidBottomPadding = Math.max(insets.bottom, 8);
 
     return (
+        <>
         <Tabs
             screenOptions={{
                 tabBarShowLabel: true,
@@ -144,5 +146,7 @@ export default function TabsLayout() {
             <Tabs.Screen name="discount" options={{ href: null }} />
             <Tabs.Screen name="settings" options={{ href: null }} />
         </Tabs>
+        <KycModal />
+        </>
     );
 }

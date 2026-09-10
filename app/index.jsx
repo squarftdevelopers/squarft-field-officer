@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { profileAPI, restoreAuthToken } from "../services/api";
 import { useDispatch } from "react-redux";
-import { setLoggedIn } from "../store/slices/authSlice";
+import { setLoggedIn, setKycState } from "../store/slices/authSlice";
 
 const SPLASH_DURATION_MS = 100; // Fast-forward custom splash loop
 
@@ -17,7 +17,6 @@ export default function Index() {
         const checkAuth = async () => {
             const startTime = Date.now();
             let routeTo = "/(auth)/onboarding1";
-            let routeParams = null;
 
             try {
                 const token = await restoreAuthToken();
@@ -25,15 +24,12 @@ export default function Index() {
                     const res = await profileAPI.getProfile();
                     if (res && res.success && res.data?.profile) {
                         const kycStatus = res.data.profile.kyc_status || "missing";
+                        dispatch(setKycState(kycStatus));
+                        dispatch(setLoggedIn(true));
                         if (kycStatus === "verified") {
-                            dispatch(setLoggedIn(true));
                             routeTo = "/(tabs)/home";
                         } else {
-                            routeTo = "/(auth)/kyc";
-                            routeParams = {
-                                status: kycStatus,
-                                rejectionReason: res.data.profile.rejection_reason || "",
-                            };
+                            routeTo = "/(tabs)/home";
                         }
                     }
                 }
@@ -45,14 +41,7 @@ export default function Index() {
             const remaining = Math.max(0, SPLASH_DURATION_MS - elapsed);
 
             setTimeout(() => {
-                if (routeParams) {
-                    router.replace({
-                        pathname: routeTo,
-                        params: routeParams,
-                    });
-                } else {
-                    router.replace(routeTo);
-                }
+                router.replace(routeTo);
             }, remaining);
         };
 

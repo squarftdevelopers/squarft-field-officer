@@ -19,7 +19,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch } from 'react-redux';
 import { kycAPI, setAuthToken } from '../../services/api';
-import { setLoggedIn } from '../../store/slices/authSlice';
+import { setLoggedIn, setKycState } from '../../store/slices/authSlice';
 
 const isApprovedStatus = (status) => ['verified', 'approved'].includes(String(status || '').toLowerCase());
 const isReviewStatus = (status) => String(status || '').toLowerCase() === 'under_review';
@@ -208,6 +208,7 @@ export default function KycScreen() {
       const submitted = await kycAPI.submitKyc();
       setKyc(submitted.data);
       setStatus(submitted.data?.verification_status || 'under_review');
+      dispatch(setKycState(submitted.data?.verification_status || 'under_review'));
       setRejectionReason('');
       Alert.alert('KYC Submitted', 'Your KYC has been submitted for admin approval.');
     } catch (error) {
@@ -222,6 +223,11 @@ export default function KycScreen() {
     setAuthToken(null);
     dispatch(setLoggedIn(false));
     router.replace('/(auth)/login');
+  };
+
+  const handleBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)/home');
   };
 
   const currentStatus = String(status || '').toLowerCase();
@@ -252,6 +258,7 @@ export default function KycScreen() {
           onPress={() => {
             if (isApprovedStatus(currentStatus)) {
               dispatch(setLoggedIn(true));
+              dispatch(setKycState('verified'));
               router.replace('/(tabs)/home');
             } else {
               loadKycStatus();
@@ -271,8 +278,8 @@ export default function KycScreen() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
-        <Pressable onPress={handleLogout} style={styles.logoutButtonHeader}>
-          <Ionicons name="log-out-outline" size={22} color="#DC2626" />
+        <Pressable onPress={handleBack} style={styles.logoutButtonHeader}>
+          <Ionicons name="arrow-back" size={22} color="#111827" />
         </Pressable>
         <Text style={styles.headerTitle}>KYC Verification</Text>
         <View style={styles.headerSpacer} />

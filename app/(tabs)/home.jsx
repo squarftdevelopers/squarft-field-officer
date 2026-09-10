@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import ProjectLeadFormSheet from "../../components/ProjectLeadFormSheet";
 import { fetchDashboard } from "../../store/slices/dashboardSlice";
+import { fetchOfficerProfile } from "../../store/slices/profileSlice";
 import { leadsAPI } from "../../services/api";
 import {
     markProjectContacted,
@@ -163,6 +164,7 @@ export default function Home() {
     const meetingItems = useSelector(selectAllProjectMeetings);
     const notifications = useSelector((state) => state.notifications?.list || []);
     const { profile, metrics, loading } = useSelector((state) => state.dashboard);
+    const officerProfile = useSelector((state) => state.profile.profile);
     const apiMeetings = useSelector((state) => state.dashboard.tasks?.meetings ?? null);
     const apiFollowUps = useSelector((state) => state.dashboard.tasks?.follow_ups ?? null);
     const { height, width } = useWindowDimensions();
@@ -225,7 +227,7 @@ export default function Home() {
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         try {
-            await dispatch(fetchDashboard());
+            await Promise.all([dispatch(fetchDashboard()), dispatch(fetchOfficerProfile())]);
         } catch (err) {
             console.error("Refresh dashboard error:", err);
         } finally {
@@ -237,6 +239,7 @@ export default function Home() {
     useFocusEffect(
         useCallback(() => {
             dispatch(fetchDashboard());
+            dispatch(fetchOfficerProfile());
         }, [dispatch])
     );
 
@@ -318,17 +321,17 @@ export default function Home() {
                         <View className="flex-row items-center justify-between">
                             <View className="flex-row items-center">
                                 <View className="h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-white">
-                                    <HeaderAvatar uri={profile?.avatar_url} name={profile?.name} />
+                                    <HeaderAvatar uri={profile?.avatar_url || officerProfile?.avatar_url} name={profile?.name || officerProfile?.name} />
                                 </View>
                                 <View className="ml-2.5">
                                     <View className="flex-row items-center">
                                         <Text className="text-[18px] font-lato-bold text-black">
-                                            {profile?.name || "Field Officer"}
+                                            {profile?.name || officerProfile?.name || "Field Officer"}
                                         </Text>
                                         <Ionicons name="checkmark-circle" size={14} color="#10F528" style={{ marginLeft: 5 }} />
                                     </View>
                                     <Text className="mt-0.5 text-[12px] text-black/60">
-                                        {profile?.role_display || "Field Officer"}
+                                        {profile?.role_display || officerProfile?.role_display || "Field Officer"}
                                     </Text>
                                 </View>
                             </View>
