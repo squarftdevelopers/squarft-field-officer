@@ -128,6 +128,7 @@ export default function Profile() {
     const dispatch = useDispatch();
     const { profile, performanceThisMonth, reportingManager, loading, error } = useSelector((state) => state.profile);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const [deletingAccount, setDeletingAccount] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
     useFocusEffect(
@@ -233,6 +234,37 @@ export default function Profile() {
                         dispatch(clearOfficerProfile());
                         dispatch(logout());
                         router.replace("/(auth)/login");
+                    },
+                },
+            ],
+        );
+    };
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            "Delete Account",
+            "Are you sure you want to delete your account? This action is permanent and cannot be undone.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        setDeletingAccount(true);
+                        try {
+                            await profileAPI.deleteAccount();
+                            await authAPI.logout();
+                            dispatch(clearOfficerProfile());
+                            dispatch(logout());
+                            router.replace("/(auth)/login");
+                        } catch (err) {
+                            Alert.alert(
+                                "Delete failed",
+                                err?.response?.data?.message || err?.message || "Unable to delete account. Please try again."
+                            );
+                        } finally {
+                            setDeletingAccount(false);
+                        }
                     },
                 },
             ],
@@ -433,10 +465,27 @@ export default function Profile() {
                 <TouchableOpacity
                     activeOpacity={0.85}
                     onPress={handleLogout}
+                    disabled={deletingAccount}
                     className="h-12 flex-row items-center justify-center rounded-2xl border border-red-200 bg-white"
                 >
                     <Ionicons name="log-out-outline" size={18} color="#EF4444" />
                     <Text className="ml-2 text-[13px] font-lato-bold text-red-500">Log Out</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={handleDeleteAccount}
+                    disabled={deletingAccount}
+                    className="mt-3 h-12 flex-row items-center justify-center rounded-2xl border border-red-200 bg-red-50"
+                >
+                    {deletingAccount ? (
+                        <ActivityIndicator size="small" color="#DC2626" />
+                    ) : (
+                        <>
+                            <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                            <Text className="ml-2 text-[13px] font-lato-bold text-red-600">Delete Account</Text>
+                        </>
+                    )}
                 </TouchableOpacity>
             </ScrollView>
         </View>

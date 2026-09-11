@@ -133,6 +133,10 @@ export const profileAPI = {
     });
     return data;
   },
+  deleteAccount: async () => {
+    const { data } = await api.delete('/api/v1/profile/me');
+    return data;
+  },
 };
 
 export const projectsAPI = {

@@ -4,13 +4,14 @@ import { useDispatch, useSelector } from "react-redux";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { fetchOfficerProfile } from "../../store/slices/profileSlice";
-import { authAPI } from "../../services/api";
-import { setLoggedIn } from "../../store/slices/authSlice";
+import { fetchOfficerProfile, clearOfficerProfile } from "../../store/slices/profileSlice";
+import { authAPI, profileAPI } from "../../services/api";
+import { setLoggedIn, logout } from "../../store/slices/authSlice";
 
 export default function Settings() {
     const dispatch = useDispatch();
     const { profile, performanceThisMonth, reportingManager, loading } = useSelector((state) => state.profile);
+    const [deletingAccount, setDeletingAccount] = useState(false);
 
     useEffect(() => {
         dispatch(fetchOfficerProfile());
@@ -25,10 +26,41 @@ export default function Settings() {
                 onPress: async () => {
                     await authAPI.logout();
                     dispatch(setLoggedIn(false));
-                    router.replace("/login");
+                    router.replace("/(auth)/login");
                 },
             },
         ]);
+    };
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            "Delete Account",
+            "Are you sure you want to delete your account? This action is permanent and cannot be undone.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        setDeletingAccount(true);
+                        try {
+                            await profileAPI.deleteAccount();
+                            await authAPI.logout();
+                            dispatch(clearOfficerProfile());
+                            dispatch(logout ? logout() : setLoggedIn(false));
+                            router.replace("/(auth)/login");
+                        } catch (err) {
+                            Alert.alert(
+                                "Delete failed",
+                                err?.response?.data?.message || err?.message || "Unable to delete account. Please try again."
+                            );
+                        } finally {
+                            setDeletingAccount(false);
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     if (loading) {
@@ -114,6 +146,25 @@ export default function Settings() {
 
                 {/* Actions */}
                 <View className="mx-4 mt-3 rounded-[16px] bg-white">
+                    {[
+                        ["Terms & Conditions", "document-text-outline"],
+                        ["Privacy Policy", "shield-checkmark-outline"],
+                        ["Contact Us", "call-outline"],
+                        ["FAQs", "help-circle-outline"],
+                    ].map(([label, icon], index) => (
+                        <TouchableOpacity
+                            key={label}
+                            activeOpacity={0.7}
+                            onPress={() => router.push({ pathname: "/(screens)/coming-soon", params: { title: label } })}
+                            className={`flex-row items-center justify-between px-4 py-4 ${index < 3 ? "border-b border-[#F3F4F6]" : ""}`}
+                        >
+                            <View className="flex-row items-center">
+                                <Ionicons name={icon} size={20} color="#374151" />
+                                <Text className="ml-3 text-[15px] text-[#374151]">{label}</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                        </TouchableOpacity>
+                    ))}
                     <TouchableOpacity
                         activeOpacity={0.7}
                         className="flex-row items-center justify-between border-b border-[#F3F4F6] px-4 py-4"
@@ -128,11 +179,29 @@ export default function Settings() {
                     <TouchableOpacity
                         activeOpacity={0.7}
                         onPress={handleLogout}
-                        className="flex-row items-center justify-between px-4 py-4"
+                        disabled={deletingAccount}
+                        className="flex-row items-center justify-between border-b border-[#F3F4F6] px-4 py-4"
                     >
                         <View className="flex-row items-center">
                             <Ionicons name="log-out-outline" size={20} color="#EF4444" />
                             <Text className="ml-3 text-[15px] text-[#EF4444]">Logout</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={handleDeleteAccount}
+                        disabled={deletingAccount}
+                        className="flex-row items-center justify-between px-4 py-4 bg-red-50/50 rounded-b-[16px]"
+                    >
+                        <View className="flex-row items-center">
+                            {deletingAccount ? (
+                                <ActivityIndicator size="small" color="#DC2626" />
+                            ) : (
+                                <Ionicons name="trash-outline" size={20} color="#DC2626" />
+                            )}
+                            <Text className="ml-3 text-[15px] font-lato-bold text-[#DC2626]">Delete Account</Text>
                         </View>
                         <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
                     </TouchableOpacity>

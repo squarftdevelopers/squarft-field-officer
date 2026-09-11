@@ -96,7 +96,7 @@ export default function Login() {
                     <View className="flex-row items-center">
                         <Text className="text-white/80 text-[14px]">Don&apos;t have an account? </Text>
                         <Link href="/register">
-                            <Text className="text-white text-[14px] font-semibold underline">Sign Up</Text>
+                            <Text className="text-white text-[14px] font-semibold underline">Register</Text>
                         </Link>
                     </View>
                 </View>
