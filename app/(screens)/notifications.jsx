@@ -1,4 +1,5 @@
-import { View, Text, Pressable, StatusBar, Platform, ScrollView } from "react-native";
+import { View, Text, Pressable, StatusBar, Platform, ScrollView, RefreshControl } from "react-native";
+import { useState } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
@@ -42,6 +43,14 @@ export default function Notifications() {
     const dispatch = useDispatch();
     const notifications = useSelector((state) => state.notifications?.list || []);
     const unreadCount = notifications.filter(item => !item.watched).length;
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        setTimeout(() => {
+            setRefreshing(false);
+        }, 500);
+    };
 
     const openNotification = (item) => {
         dispatch(markAsWatched(item.id));
@@ -91,6 +100,15 @@ export default function Notifications() {
             ) : (
                 <ScrollView
                     showsVerticalScrollIndicator={false}
+                    alwaysBounceVertical={true}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={["#4A43EC"]}
+                            tintColor="#4A43EC"
+                        />
+                    }
                     contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 100 }}
                 >
                     {notifications.map((item) => (

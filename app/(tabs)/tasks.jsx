@@ -174,6 +174,7 @@ export default function Tasks() {
                         className="flex-1"
                         contentContainerStyle={{ paddingBottom: 108, paddingHorizontal: 16, paddingTop: 12 }}
                         showsVerticalScrollIndicator={false}
+                        alwaysBounceVertical={true}
                         refreshControl={
                             <RefreshControl
                                 refreshing={refreshing}

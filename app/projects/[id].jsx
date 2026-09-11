@@ -1880,6 +1880,7 @@ export default function ProjectDetail() {
                             className="flex-1"
                             contentContainerStyle={{ paddingBottom: 28 }}
                             showsVerticalScrollIndicator={false}
+                            alwaysBounceVertical={true}
                             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadProjectDetails(true)} colors={["#4A43EC"]} tintColor="#4A43EC" />}
                         >
                             {activeTab === "overview" ? (

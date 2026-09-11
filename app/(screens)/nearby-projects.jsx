@@ -265,6 +265,7 @@ export default function NearbyProjects() {
                     <ScrollView
                         className="flex-1"
                         contentContainerStyle={{ paddingBottom: 28 }}
+                        alwaysBounceVertical={true}
                         refreshControl={
                             <RefreshControl
                                 refreshing={refreshing}

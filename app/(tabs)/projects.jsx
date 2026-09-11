@@ -172,6 +172,7 @@ export default function Projects() {
                     className="flex-1"
                     contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 106, paddingTop: 2 }}
                     showsVerticalScrollIndicator={false}
+                    alwaysBounceVertical={true}
                     keyboardShouldPersistTaps="handled"
                     refreshControl={
                         <RefreshControl

@@ -321,6 +321,7 @@ export default function Profile() {
                 className="flex-1"
                 contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: 110 }}
                 showsVerticalScrollIndicator={false}
+                alwaysBounceVertical={true}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}

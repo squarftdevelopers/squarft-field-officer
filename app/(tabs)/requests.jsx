@@ -150,6 +150,7 @@ export default function ProjectRequests() {
                     <ScrollView
                         className="flex-1"
                         showsVerticalScrollIndicator={false}
+                        alwaysBounceVertical={true}
                         contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={() => fetchRequests(true)} colors={[PURPLE]} tintColor={PURPLE} />

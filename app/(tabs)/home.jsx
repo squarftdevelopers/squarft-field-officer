@@ -421,6 +421,7 @@ export default function Home() {
                     className="flex-1"
                     contentContainerStyle={{ minHeight: 570, paddingBottom: 120, paddingTop: notchHeight + 18 }}
                     showsVerticalScrollIndicator={false}
+                    alwaysBounceVertical={true}
                     refreshControl={
                         <RefreshControl
                             refreshing={refreshing}
