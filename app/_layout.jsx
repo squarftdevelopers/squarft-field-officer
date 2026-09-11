@@ -1,11 +1,12 @@
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { Provider } from 'react-redux';
 import "../global.css";
 import { store } from '../store/store';
+import AnimatedSplashScreen from '../components/AnimatedSplashScreen';
 import {
     useFonts,
     Lato_400Regular,
@@ -17,6 +18,7 @@ import {
 SplashScreen.preventAutoHideAsync();
 
 export default function AuthLayout() {
+        const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
     const [fontsLoaded] = useFonts({
         Lato_400Regular,
         Lato_700Bold,
@@ -44,6 +46,9 @@ export default function AuthLayout() {
                         <Stack.Screen name="projects/[id]" options={{ headerShown: false }} />
                         <Stack.Screen name="projects/navigate" options={{ headerShown: false }} />
                     </Stack>
+                    {showAnimatedSplash && (
+                        <AnimatedSplashScreen onFinish={() => setShowAnimatedSplash(false)} />
+                    )}
                 </BottomSheetModalProvider>
             </Provider>
         </GestureHandlerRootView>

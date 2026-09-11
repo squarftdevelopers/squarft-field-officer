@@ -94,11 +94,6 @@ export const authAPI = {
     return data;
   },
 
-  resetPassword: async (verified_token, new_password) => {
-    const { data } = await api.post('/auth/reset-password', { verified_token, new_password });
-    return data;
-  },
-
   logout: async () => {
     setAuthToken(null);
   },

@@ -8,8 +8,6 @@ export default function AuthLayout() {
             <Stack.Screen name="onboarding3" />
             <Stack.Screen name="login" />
             <Stack.Screen name="register" />
-            <Stack.Screen name="forgot-password" />
-            <Stack.Screen name="change-password" />
             <Stack.Screen name="otp-verification" />
             <Stack.Screen name="kyc" />
         </Stack>

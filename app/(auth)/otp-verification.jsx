@@ -62,10 +62,7 @@ export default function OtpVerification() {
         try {
             const response = await authAPI.verifyOtp(otpToken, otpCode);
             
-            if (otpFlow === 'forgot-password') {
-                dispatch(setVerifiedToken(response.verified_token));
-                router.push("/change-password");
-            } else if (otpFlow === 'login') {
+            if (otpFlow === 'login') {
                 const login = await authAPI.login(response.verified_token);
                 const kycStatus = login.user?.kyc_status || 'missing';
                 dispatch(setKycState(kycStatus));
@@ -117,8 +114,7 @@ export default function OtpVerification() {
         setResending(true);
         try {
             autoSubmittedRef.current = false;
-            const purpose = otpFlow === 'forgot-password' ? 'reset_password' : otpFlow;
-            const response = await authAPI.sendOtp(mobile, purpose);
+            const response = await authAPI.sendOtp(mobile, otpFlow);
             dispatch(setOtpToken(response.otp_token));
             dispatch(clearOtp());
             inputs.current[0]?.focus();
