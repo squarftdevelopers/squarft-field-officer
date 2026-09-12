@@ -83,6 +83,63 @@
     },
     {
       "client_info": {
+        "mobilesdk_app_id": "1:803023869446:android:d71de1778cc0a90aa0d587",
+        "android_client_info": {
+          "package_name": "com.squarft.broker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDS5QBZI3Mf617ycLJLGBvClwMEbUPYl0A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:803023869446:android:229bd88c712614daa0d587",
+        "android_client_info": {
+          "package_name": "com.squarft.fieldofficer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDS5QBZI3Mf617ycLJLGBvClwMEbUPYl0A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:803023869446:android:4934214cf336d177a0d587",
+        "android_client_info": {
+          "package_name": "com.squarft.salesofficer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDS5QBZI3Mf617ycLJLGBvClwMEbUPYl0A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:803023869446:android:e75474476c609739a0d587",
         "android_client_info": {
           "package_name": "com.squarft.user"
