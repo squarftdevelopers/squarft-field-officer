@@ -1,9 +1,8 @@
 import { View, Text, Pressable, StatusBar, Platform, ScrollView, RefreshControl } from "react-native";
-import { useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
-import { useDispatch, useSelector } from "react-redux";
-import { markAllAsWatched, markAsWatched } from "../../store/slices/notificationSlice";
+import { notificationApi } from "../../services/notificationApi";
 
 const getIconConfig = (type) => {
     switch (type) {
@@ -40,20 +39,62 @@ function NotificationIcon({ type }) {
 }
 
 export default function Notifications() {
-    const dispatch = useDispatch();
-    const notifications = useSelector((state) => state.notifications?.list || []);
-    const unreadCount = notifications.filter(item => !item.watched).length;
+    const [notifications, setNotifications] = useState([]);
+    const [unreadCount, setUnreadCount] = useState(0);
     const [refreshing, setRefreshing] = useState(false);
+
+    const loadNotifications = useCallback(async () => {
+        try {
+            const res = await notificationApi.list();
+            const list = res.data || [];
+            const mapped = list.map((n) => ({
+                id: n.id,
+                title: n.title,
+                description: n.body,
+                watched: Boolean(n.is_read),
+                target: n.metadata?.route || null,
+                type: n.type || "default",
+                time: n.sent_at ? new Date(n.sent_at).toLocaleDateString() : "Recently",
+            }));
+            setNotifications(mapped);
+            setUnreadCount(Number(res.unread_count || 0));
+        } catch (err) {
+            console.warn("Failed to load notifications:", err.message);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadNotifications();
+    }, [loadNotifications]);
 
     const onRefresh = async () => {
         setRefreshing(true);
-        setTimeout(() => {
-            setRefreshing(false);
-        }, 500);
+        await loadNotifications();
+        setRefreshing(false);
     };
 
-    const openNotification = (item) => {
-        dispatch(markAsWatched(item.id));
+    const handleMarkAllRead = async () => {
+        try {
+            await notificationApi.markAllRead();
+            setNotifications((prev) => prev.map((item) => ({ ...item, watched: true })));
+            setUnreadCount(0);
+        } catch (err) {
+            console.warn("Failed to mark all as read:", err.message);
+        }
+    };
+
+    const openNotification = async (item) => {
+        if (!item.watched) {
+            try {
+                await notificationApi.markRead(null, item.id);
+                setNotifications((prev) =>
+                    prev.map((n) => (n.id === item.id ? { ...n, watched: true } : n))
+                );
+                setUnreadCount((prev) => Math.max(0, prev - 1));
+            } catch (err) {
+                console.warn("Failed to mark read:", err.message);
+            }
+        }
         if (item.target && item.target !== "/(tabs)/home") {
             router.push(item.target);
         }
@@ -78,7 +119,7 @@ export default function Notifications() {
                     </Text>
                 </View>
                 <Pressable
-                    onPress={() => dispatch(markAllAsWatched())}
+                    onPress={handleMarkAllRead}
                     className="bg-[#4A43EC]/10 px-3 py-1.5 rounded-lg"
                 >
                     <Text className="text-[#4A43EC] text-[11px] font-lato-bold">Mark all read</Text>

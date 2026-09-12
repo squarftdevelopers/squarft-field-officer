@@ -15,10 +15,13 @@ import {
     Lato_900Black,
 } from "@expo-google-fonts/lato";
 
+import { restoreAuthToken } from "../services/api";
+import { registerForPushNotificationsAsync } from "../services/pushNotifications";
+
 SplashScreen.preventAutoHideAsync();
 
 export default function AuthLayout() {
-        const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
+    const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
     const [fontsLoaded] = useFonts({
         Lato_400Regular,
         Lato_700Bold,
@@ -29,6 +32,14 @@ export default function AuthLayout() {
     useEffect(() => {
         if (fontsLoaded) SplashScreen.hideAsync();
     }, [fontsLoaded]);
+
+    useEffect(() => {
+        restoreAuthToken().then((token) => {
+            if (token) {
+                registerForPushNotificationsAsync(token);
+            }
+        });
+    }, []);
 
     if (!fontsLoaded) return null;
 

@@ -1,0 +1,105 @@
+{
+  "project_info": {
+    "project_number": "803023869446",
+    "project_id": "squarft-7bb7f",
+    "storage_bucket": "squarft-7bb7f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:803023869446:android:e11400add61b99f9a0d587",
+        "android_client_info": {
+          "package_name": "com.kartik2611mishra.squarftbroker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDS5QBZI3Mf617ycLJLGBvClwMEbUPYl0A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:803023869446:android:ebc83519b2c94578a0d587",
+        "android_client_info": {
+          "package_name": "com.kartik2611mishra.squarftfieldofficer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDS5QBZI3Mf617ycLJLGBvClwMEbUPYl0A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:803023869446:android:59c360d662d70d0da0d587",
+        "android_client_info": {
+          "package_name": "com.kartik2611mishra.squarftprojectpanel"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDS5QBZI3Mf617ycLJLGBvClwMEbUPYl0A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:803023869446:android:5dd41b371cbcd784a0d587",
+        "android_client_info": {
+          "package_name": "com.kartik2611mishra.squarftsalesofficer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDS5QBZI3Mf617ycLJLGBvClwMEbUPYl0A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:803023869446:android:e75474476c609739a0d587",
+        "android_client_info": {
+          "package_name": "com.squarft.user"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDS5QBZI3Mf617ycLJLGBvClwMEbUPYl0A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

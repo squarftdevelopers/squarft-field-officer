@@ -16,6 +16,7 @@
       }
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE"
       },
@@ -53,7 +54,14 @@
           }
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-notifications",
+        {
+          "color": "#EF4444",
+          "defaultChannel": "field-alerts"
+        }
+      ]
     ],
     "splash": {
       "image": "./assets/icons/icon.png",
