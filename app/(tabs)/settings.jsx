@@ -147,15 +147,15 @@ export default function Settings() {
                 {/* Actions */}
                 <View className="mx-4 mt-3 rounded-[16px] bg-white">
                     {[
-                        ["Terms & Conditions", "document-text-outline"],
-                        ["Privacy Policy", "shield-checkmark-outline"],
-                        ["Contact Us", "call-outline"],
-                        ["FAQs", "help-circle-outline"],
-                    ].map(([label, icon], index) => (
+                        ["Terms & Conditions", "document-text-outline", "/(screens)/terms-and-conditions"],
+                        ["Privacy Policy", "shield-checkmark-outline", "/(screens)/privacy-policy"],
+                        ["Contact Us", "call-outline", "/(screens)/contact-us"],
+                        ["FAQs", "help-circle-outline", "/(screens)/faqs"],
+                    ].map(([label, icon, route], index) => (
                         <TouchableOpacity
                             key={label}
                             activeOpacity={0.7}
-                            onPress={() => router.push({ pathname: "/(screens)/coming-soon", params: { title: label } })}
+                            onPress={() => router.push(route)}
                             className={`flex-row items-center justify-between px-4 py-4 ${index < 3 ? "border-b border-[#F3F4F6]" : ""}`}
                         >
                             <View className="flex-row items-center">

@@ -194,14 +194,14 @@ export default function Register() {
                     <Text className="text-center text-xs text-gray-400 font-lato leading-5">
                         By registering, you agree to our{"\n"}
                         <Text
-                            onPress={() => router.push({ pathname: "/(screens)/coming-soon", params: { title: "Terms & Conditions" } })}
+                            onPress={() => router.push("/(screens)/terms-and-conditions")}
                             className="font-bold text-[#4A43EC]"
                         >
                             Terms & Conditions
                         </Text>
                         {" "}and{" "}
                         <Text
-                            onPress={() => router.push({ pathname: "/(screens)/coming-soon", params: { title: "Privacy Policy" } })}
+                            onPress={() => router.push("/(screens)/privacy-policy")}
                             className="font-bold text-[#4A43EC]"
                         >
                             Privacy Policy
