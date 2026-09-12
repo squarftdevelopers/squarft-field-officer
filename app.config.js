@@ -1,4 +1,5 @@
 const path = require("node:path");
+
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 module.exports = ({ config }) => {
@@ -14,6 +15,12 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
+
+    plugins: [
+      ...(config.plugins || []),
+      "expo-asset",
+    ],
+
     ios: {
       ...config.ios,
       config: {
@@ -21,6 +28,7 @@ module.exports = ({ config }) => {
         googleMapsApiKey,
       },
     },
+
     android: {
       ...config.android,
       config: {
@@ -31,6 +39,7 @@ module.exports = ({ config }) => {
         },
       },
     },
+
     extra: {
       ...config.extra,
       googleMapsApiKey,
