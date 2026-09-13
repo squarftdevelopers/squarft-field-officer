@@ -8,7 +8,7 @@
     "scheme": "squarftfieldofficer",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "owner": "squarft",
+    "owner": "squarft-team",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.squarft.fieldofficer",
@@ -79,14 +79,14 @@
       "googleMapsApiKey": "AIzaSyDiYnY4FG1juihWvHEgM-NSz2aEKUsKing",
       "router": {},
       "eas": {
-        "projectId": "47957612-4b27-42fc-8ce2-14f8b16c8313"
+        "projectId": "c189a40d-559e-4020-87f1-e5968c16066a"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/47957612-4b27-42fc-8ce2-14f8b16c8313"
+      "url": "https://u.expo.dev/c189a40d-559e-4020-87f1-e5968c16066a"
     }
   }
 }

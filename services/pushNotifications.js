@@ -59,8 +59,8 @@ const requestNotificationPermissions = async () => {
 export const registerForPushNotificationsAsync = async (authToken) => {
   if (!authToken || Platform.OS === 'web') return null;
 
-  if (Constants.isDevice === false) {
-    console.log('[PushNotifications] Push requires physical device');
+  if (Platform.OS === 'ios' && Constants.isDevice === false) {
+    console.log('[PushNotifications] Push skipped on iOS simulator');
     return null;
   }
 

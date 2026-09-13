@@ -121,6 +121,25 @@
     },
     {
       "client_info": {
+        "mobilesdk_app_id": "1:803023869446:android:e4696725f3520ac9a0d587",
+        "android_client_info": {
+          "package_name": "com.squarft.projectpanel"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDS5QBZI3Mf617ycLJLGBvClwMEbUPYl0A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:803023869446:android:4934214cf336d177a0d587",
         "android_client_info": {
           "package_name": "com.squarft.salesofficer"
