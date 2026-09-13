@@ -8,20 +8,15 @@ import {
     Linking,
     Platform,
     ScrollView,
+    Image,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { useRouter } from "expo-router";
+import { router } from "expo-router";
 import { useDispatch } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withRepeat,
-    withTiming,
-    withDelay,
-    Easing,
     FadeIn,
     FadeInDown,
     FadeInUp,
@@ -35,57 +30,12 @@ import {
     setKycState,
 } from "../../store/slices/authSlice";
 import { profileAPI, setAuthToken } from "../../services/api";
-import LocationMapPicker from "../../components/LocationMapPicker";
 
-// Animated Radar Pulse Ring Component
-function RadarRing({ delay = 0, size = 160 }) {
-    const scale = useSharedValue(0.3);
-    const opacity = useSharedValue(0.8);
-
-    useEffect(() => {
-        scale.value = withDelay(
-            delay,
-            withRepeat(
-                withTiming(2.4, { duration: 2400, easing: Easing.out(Easing.ease) }),
-                -1,
-                false
-            )
-        );
-        opacity.value = withDelay(
-            delay,
-            withRepeat(
-                withTiming(0, { duration: 2400, easing: Easing.out(Easing.ease) }),
-                -1,
-                false
-            )
-        );
-    }, [delay, scale, opacity]);
-
-    const ringStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
-        opacity: opacity.value,
-    }));
-
-    return (
-        <Animated.View
-            style={[
-                {
-                    position: "absolute",
-                    width: size,
-                    height: size,
-                    borderRadius: size / 2,
-                    borderWidth: 2,
-                    borderColor: "#4A43EC",
-                    backgroundColor: "rgba(74, 67, 236, 0.08)",
-                },
-                ringStyle,
-            ]}
-        />
-    );
-}
+const locationIllustration = require("../../assets/images/location.jpg");
+const searchingIllustration = require("../../assets/images/searching.jpg");
+const comingSoonIllustration = require("../../assets/images/coming-soon.jpg");
 
 export default function LocationPermissionScreen() {
-    const router = useRouter();
     const dispatch = useDispatch();
 
     // States: 'prompt' | 'detecting' | 'select_branch' | 'coming_soon' | 'gps_unavailable'
@@ -96,7 +46,6 @@ export default function LocationPermissionScreen() {
     const [detectedCity, setDetectedCity] = useState(null);
     const [detectedAddress, setDetectedAddress] = useState(null);
     const [isAssigning, setIsAssigning] = useState(false);
-    const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
 
     /**
      * Sends coordinates to backend to detect matching branches.
@@ -214,12 +163,11 @@ export default function LocationPermissionScreen() {
             if (finalStatus !== "granted") {
                 setViewState("prompt");
                 Alert.alert(
-                    "Location Access Needed",
-                    "Location permission is required to detect your operational branch and connect you to local inventory. You can also pinpoint your location manually on the map.",
+                    "Location Permission Required",
+                    "Please grant location permission so we can automatically connect your account to your nearest branch.",
                     [
-                        { text: "Pick on Map", onPress: () => setIsMapPickerOpen(true) },
-                        { text: "Open Settings", onPress: () => Linking.openSettings() },
                         { text: "Cancel", style: "cancel" },
+                        { text: "Open Settings", onPress: () => Linking.openSettings() },
                     ]
                 );
                 return;
@@ -232,9 +180,9 @@ export default function LocationPermissionScreen() {
             try {
                 locationResult = await Location.getCurrentPositionAsync({
                     accuracy: Location.Accuracy.Balanced,
-                    timeInterval: 5000,
                 });
-            } catch {
+            } catch (posError) {
+                console.warn("[LOCATION PERMISSION] getCurrentPositionAsync failed, checking last known position:", posError.message);
                 try {
                     locationResult = await Location.getLastKnownPositionAsync();
                 } catch {
@@ -242,20 +190,20 @@ export default function LocationPermissionScreen() {
                 }
             }
 
-            if (!locationResult?.coords) {
+            if (!locationResult || !locationResult.coords) {
                 setViewState("gps_unavailable");
                 return;
             }
 
             const { latitude, longitude } = locationResult.coords;
             await processCoordinates(latitude, longitude);
-        } catch (err) {
-            console.error("[LOCATION PERMISSION] Detection error:", err);
+        } catch (error) {
+            console.error("[LOCATION PERMISSION] Detection failed:", error);
             setViewState("gps_unavailable");
         }
     }, [processCoordinates]);
 
-    // Check if permission already granted on mount
+    // Check if permission is already granted on mount
     useEffect(() => {
         let isMounted = true;
         (async () => {
@@ -273,23 +221,6 @@ export default function LocationPermissionScreen() {
             isMounted = false;
         };
     }, [handleStartDetection]);
-
-    // Handle selection from custom Map Picker
-    const handleMapLocationConfirm = async (selected) => {
-        setIsMapPickerOpen(false);
-        if (selected?.location) {
-            setDetectedAddress(selected.location);
-        }
-        if (selected?.latitude && selected?.longitude) {
-            await processCoordinates(
-                selected.latitude,
-                selected.longitude,
-                selected.city,
-                selected.state,
-                selected.location
-            );
-        }
-    };
 
     // Confirm the user-selected branch and continue to the dashboard
     const handleConfirmBranch = async () => {
@@ -357,69 +288,74 @@ export default function LocationPermissionScreen() {
             {viewState === "prompt" && (
                 <Animated.View
                     entering={FadeInDown.duration(400)}
-                    className="flex-1 px-6 justify-between py-6"
+                    className="flex-1 px-6"
                 >
-                    <View className="items-center mt-4">
-                        {/* Location Beacon Graphic */}
-                        <View className="w-28 h-28 rounded-full bg-[#4A43EC]/10 items-center justify-center mb-6">
-                            <View className="w-20 h-20 rounded-full bg-[#4A43EC]/20 items-center justify-center">
-                                <View className="w-12 h-12 rounded-full bg-[#4A43EC] items-center justify-center shadow-lg shadow-[#4A43EC]/40">
-                                    <Ionicons name="navigate" size={24} color="white" />
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ flexGrow: 1, justifyContent: "space-between", paddingVertical: 12 }}
+                    >
+                        <View className="items-center">
+                            {/* Location Illustration */}
+                            <View className="w-full max-w-[260px] h-[160px] rounded-3xl overflow-hidden mb-4 items-center justify-center bg-white shadow-sm border border-gray-100">
+                                <Image
+                                    source={locationIllustration}
+                                    style={{ width: "100%", height: "100%" }}
+                                    resizeMode="contain"
+                                />
+                            </View>
+
+                            <Text className="text-2xl font-lato-black text-gray-900 text-center mb-2">
+                                Find Your Nearest Branch
+                            </Text>
+                            <Text className="text-sm font-lato text-gray-500 text-center leading-5 px-4 mb-6">
+                                We automatically connect your field officer account to your local SquarFT branch based on your operating city.
+                            </Text>
+
+                            {/* Value Props */}
+                            <View className="w-full bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3.5 mb-6">
+                                <View className="flex-row items-center py-1">
+                                    <View className="w-9 h-9 rounded-xl bg-blue-50 items-center justify-center mr-3">
+                                        <Ionicons name="business" size={18} color="#3B82F6" />
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className="text-sm font-lato-bold text-gray-900">Automatic Branch Link</Text>
+                                        <Text className="text-xs font-lato text-gray-500">No manual branch codes or selection needed</Text>
+                                    </View>
+                                </View>
+
+                                <View className="flex-row items-center py-1">
+                                    <View className="w-9 h-9 rounded-xl bg-emerald-50 items-center justify-center mr-3">
+                                        <Ionicons name="people" size={18} color="#10B981" />
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className="text-sm font-lato-bold text-gray-900">Dedicated Field Officers</Text>
+                                        <Text className="text-xs font-lato text-gray-500">Instant site visit coordination & customer walkthroughs</Text>
+                                    </View>
+                                </View>
+
+                                <View className="flex-row items-center py-1">
+                                    <View className="w-9 h-9 rounded-xl bg-purple-50 items-center justify-center mr-3">
+                                        <Ionicons name="shield-checkmark" size={18} color="#8B5CF6" />
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className="text-sm font-lato-bold text-gray-900">Local Verified Inventory</Text>
+                                        <Text className="text-xs font-lato text-gray-500">Direct access to verified projects and payout terms in your city</Text>
+                                    </View>
                                 </View>
                             </View>
                         </View>
 
-                        <Text className="text-2xl font-lato-black text-gray-900 text-center mb-2">
-                            Find Your Nearest Branch
-                        </Text>
-                        <Text className="text-sm font-lato text-gray-500 text-center leading-5 px-4 mb-8">
-                            We automatically connect your broker account to your local SquarFT branch based on your operating city.
-                        </Text>
-
-                        {/* Value Props */}
-                        <View className="w-full bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3.5">
-                            <View className="flex-row items-center py-1">
-                                <View className="w-9 h-9 rounded-xl bg-blue-50 items-center justify-center mr-3">
-                                    <Ionicons name="business" size={18} color="#3B82F6" />
-                                </View>
-                                <View className="flex-1">
-                                    <Text className="text-sm font-lato-bold text-gray-900">Automatic Branch Link</Text>
-                                    <Text className="text-xs font-lato text-gray-500">No manual branch codes or selection needed</Text>
-                                </View>
-                            </View>
-
-                            <View className="flex-row items-center py-1">
-                                <View className="w-9 h-9 rounded-xl bg-emerald-50 items-center justify-center mr-3">
-                                    <Ionicons name="people" size={18} color="#10B981" />
-                                </View>
-                                <View className="flex-1">
-                                    <Text className="text-sm font-lato-bold text-gray-900">Dedicated Field Officers</Text>
-                                    <Text className="text-xs font-lato text-gray-500">Instant site visit coordination & customer walkthroughs</Text>
-                                </View>
-                            </View>
-
-                            <View className="flex-row items-center py-1">
-                                <View className="w-9 h-9 rounded-xl bg-purple-50 items-center justify-center mr-3">
-                                    <Ionicons name="shield-checkmark" size={18} color="#8B5CF6" />
-                                </View>
-                                <View className="flex-1">
-                                    <Text className="text-sm font-lato-bold text-gray-900">Local Verified Inventory</Text>
-                                    <Text className="text-xs font-lato text-gray-500">Direct access to verified projects and payout terms in your city</Text>
-                                </View>
-                            </View>
+                        <View className="w-full pt-2">
+                            <TouchableOpacity
+                                onPress={handleStartDetection}
+                                activeOpacity={0.85}
+                                className="w-full bg-[#4A43EC] py-4 rounded-xl flex-row items-center justify-center shadow-md shadow-[#4A43EC]/30"
+                            >
+                                <Ionicons name="locate" size={20} color="white" style={{ marginRight: 8 }} />
+                                <Text className="text-white font-lato-bold text-base">Enable Location Access</Text>
+                            </TouchableOpacity>
                         </View>
-                    </View>
-
-                    <View className="w-full space-y-3">
-                        <TouchableOpacity
-                            onPress={handleStartDetection}
-                            activeOpacity={0.85}
-                            className="w-full bg-[#4A43EC] py-4 rounded-xl flex-row items-center justify-center shadow-md shadow-[#4A43EC]/30"
-                        >
-                            <Ionicons name="locate" size={20} color="white" style={{ marginRight: 8 }} />
-                            <Text className="text-white font-lato-bold text-base">Enable Location Access</Text>
-                        </TouchableOpacity>
-                    </View>
+                    </ScrollView>
                 </Animated.View>
             )}
 
@@ -429,16 +365,13 @@ export default function LocationPermissionScreen() {
                     entering={FadeIn.duration(400)}
                     className="flex-1 px-6 items-center justify-center"
                 >
-                    {/* Pulsating Radar Visualizer */}
-                    <View className="w-64 h-64 items-center justify-center mb-10">
-                        <RadarRing delay={0} size={150} />
-                        <RadarRing delay={800} size={150} />
-                        <RadarRing delay={1600} size={150} />
-
-                        {/* Center Pin */}
-                        <View className="w-16 h-16 rounded-full bg-[#4A43EC] items-center justify-center shadow-xl shadow-[#4A43EC]/50 z-10">
-                            <Ionicons name="location" size={28} color="white" />
-                        </View>
+                    {/* Searching Illustration */}
+                    <View className="w-60 h-60 rounded-3xl overflow-hidden mb-6 items-center justify-center bg-white shadow-lg shadow-indigo-100 border border-indigo-50">
+                        <Image
+                            source={searchingIllustration}
+                            style={{ width: "100%", height: "100%" }}
+                            resizeMode="contain"
+                        />
                     </View>
 
                     <Text className="text-xl font-lato-black text-gray-900 text-center mb-2">
@@ -473,14 +406,14 @@ export default function LocationPermissionScreen() {
                         </Text>
 
                         <Text className="text-sm font-lato text-gray-500 text-center leading-5 px-4 mb-6">
-                            Your device location (GPS) is turned off or not available. Please turn on Location in your device quick settings, or pick your location manually on the map.
+                            Your device location (GPS) is turned off or not available. Please turn on Location in your device quick settings and try again.
                         </Text>
 
                         <View className="w-full bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-2">
                             <View className="flex-row items-start py-1">
                                 <Ionicons name="information-circle-outline" size={20} color="#F59E0B" style={{ marginRight: 8, marginTop: 2 }} />
                                 <Text className="text-xs font-lato text-gray-600 flex-1 leading-5">
-                                    Turn on GPS in your quick settings, or use the map below to pinpoint your operational city.
+                                    Turn on GPS in your quick settings so we can detect your nearest operational branch.
                                 </Text>
                             </View>
                         </View>
@@ -537,16 +470,16 @@ export default function LocationPermissionScreen() {
                             showsVerticalScrollIndicator={false}
                             contentContainerStyle={{ paddingBottom: 16 }}
                         >
-                            {nearbyBranches.map((branch) => {
+                            {nearbyBranches.map((branch, index) => {
                                 const isSelected = selectedBranchId === branch.id;
                                 return (
                                     <TouchableOpacity
-                                        key={branch.id}
+                                        key={branch.id || `branch-${index}`}
                                         onPress={() => setSelectedBranchId(branch.id)}
                                         activeOpacity={0.85}
                                         className={`p-4 rounded-2xl mb-3 border ${
                                             isSelected
-                                                ? "border-[#4A43EC] bg-indigo-50/40 shadow-sm"
+                                                ? "border-[#4A43EC] bg-indigo-50/40"
                                                 : "border-gray-200 bg-white"
                                         }`}
                                     >
@@ -627,16 +560,6 @@ export default function LocationPermissionScreen() {
                                 </Text>
                             )}
                         </TouchableOpacity>
-
-                        <TouchableOpacity
-                            onPress={() => setIsMapPickerOpen(true)}
-                            activeOpacity={0.7}
-                            className="w-full py-2 items-center"
-                        >
-                            <Text className="text-xs font-lato text-gray-500">
-                                Not your location? <Text className="text-[#4A43EC] font-lato-bold">Pick on Map</Text>
-                            </Text>
-                        </TouchableOpacity>
                     </View>
                 </Animated.View>
             )}
@@ -645,82 +568,57 @@ export default function LocationPermissionScreen() {
             {viewState === "coming_soon" && (
                 <Animated.View
                     entering={FadeInUp.duration(400)}
-                    className="flex-1 px-6 justify-between py-6"
+                    className="flex-1 px-6"
                 >
-                    <View className="items-center mt-8">
-                        {/* Rocket / City graphic */}
-                        <View className="w-24 h-24 rounded-full bg-amber-50 items-center justify-center mb-6">
-                            <View className="w-16 h-16 rounded-full bg-amber-500 items-center justify-center shadow-lg shadow-amber-500/30">
-                                <Ionicons name="rocket" size={32} color="white" />
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{
+                            flexGrow: 1,
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            paddingVertical: 16,
+                        }}
+                    >
+                        <View className="flex-1 items-center justify-center w-full py-4">
+                            {/* Coming Soon Illustration */}
+                            <View className="w-full max-w-[280px] h-[190px] rounded-3xl overflow-hidden mb-6 items-center justify-center bg-white shadow-sm border border-gray-100">
+                                <Image
+                                    source={comingSoonIllustration}
+                                    style={{ width: "100%", height: "100%" }}
+                                    resizeMode="contain"
+                                />
                             </View>
-                        </View>
 
-                        {/* Coming Soon Pill */}
-                        <View className="bg-amber-100 border border-amber-300 px-3 py-1 rounded-full mb-3">
-                            <Text className="text-xs font-lato-bold text-amber-800 uppercase tracking-wider">
-                                Coming Soon
+                            {/* Coming Soon Pill */}
+                            <View className="bg-amber-100 border border-amber-200 px-3.5 py-1 rounded-full mb-3">
+                                <Text className="text-xs font-lato-bold text-amber-900 tracking-wider">
+                                    COMING SOON
+                                </Text>
+                            </View>
+
+                            <Text className="text-2xl font-lato-black text-gray-900 text-center mb-2">
+                                {detectedCity ? `We're not in ${detectedCity} yet!` : "Coming to your city soon!"}
+                            </Text>
+
+                            <Text className="text-sm font-lato text-gray-500 text-center leading-5 max-w-[280px]">
+                                SquarFT is expanding rapidly. We haven&apos;t launched our partner branch network in {detectedCity || "your city"} yet.
                             </Text>
                         </View>
 
-                        <Text className="text-2xl font-lato-black text-gray-900 text-center mb-2">
-                            We&apos;re not in {detectedCity} yet!
-                        </Text>
-
-                        <Text className="text-sm font-lato text-gray-500 text-center leading-5 px-4 mb-6">
-                            SquarFT is rapidly expanding across major cities. We haven&apos;t launched our partner branch network in {detectedCity} just yet.
-                        </Text>
-
-                        {/* Info Callout Card */}
-                        <View className="w-full bg-white rounded-2xl p-5 border border-gray-100 shadow-sm space-y-3">
-                            <View className="flex-row items-center">
-                                <View className="w-8 h-8 rounded-lg bg-indigo-50 items-center justify-center mr-3">
-                                    <Ionicons name="notifications-outline" size={18} color="#4A43EC" />
-                                </View>
-                                <View className="flex-1">
-                                    <Text className="text-sm font-lato-bold text-gray-900">We&apos;ll Notify You</Text>
-                                    <Text className="text-xs font-lato text-gray-500">
-                                        Your registration is saved. We will alert you the moment we launch in {detectedCity}.
-                                    </Text>
-                                </View>
-                            </View>
-
-                            <View className="h-[1px] bg-gray-100" />
-
-                            <View className="flex-row items-center">
-                                <View className="w-8 h-8 rounded-lg bg-emerald-50 items-center justify-center mr-3">
-                                    <Ionicons name="map-outline" size={18} color="#10B981" />
-                                </View>
-                                <View className="flex-1">
-                                    <Text className="text-sm font-lato-bold text-gray-900">Operating Elsewhere?</Text>
-                                    <Text className="text-xs font-lato text-gray-500">
-                                        You can manually pick another operating city where SquarFT has an active branch.
-                                    </Text>
-                                </View>
-                            </View>
+                        {/* Footer Action */}
+                        <View className="w-full pt-4">
+                            <TouchableOpacity
+                                onPress={handleStartDetection}
+                                activeOpacity={0.85}
+                                className="w-full bg-[#4A43EC] py-4 rounded-xl flex-row items-center justify-center shadow-md shadow-[#4A43EC]/30"
+                            >
+                                <Ionicons name="refresh" size={18} color="white" style={{ marginRight: 8 }} />
+                                <Text className="text-white font-lato-bold text-base">Retry Current Location</Text>
+                            </TouchableOpacity>
                         </View>
-                    </View>
-
-                    {/* Footer Actions */}
-                    <View className="w-full space-y-3">
-
-                        <TouchableOpacity
-                            onPress={handleStartDetection}
-                            activeOpacity={0.7}
-                            className="w-full bg-white border border-gray-200 py-3.5 rounded-xl flex-row items-center justify-center"
-                        >
-                            <Ionicons name="refresh" size={18} color="#4A43EC" style={{ marginRight: 8 }} />
-                            <Text className="text-[#4A43EC] font-lato-bold text-sm">Retry Current Location</Text>
-                        </TouchableOpacity>
-                    </View>
+                    </ScrollView>
                 </Animated.View>
             )}
-
-            {/* Custom Interactive Google Map Picker Modal */}
-            <LocationMapPicker
-                visible={isMapPickerOpen}
-                onClose={() => setIsMapPickerOpen(false)}
-                onConfirm={handleMapLocationConfirm}
-            />
         </SafeAreaView>
     );
 }

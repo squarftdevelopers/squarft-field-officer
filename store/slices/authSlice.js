@@ -49,6 +49,7 @@ const authSlice = createSlice({
         verifiedToken: '',
         rememberMe: false,
         isLoggedIn: false,
+        authChecked: false,
         isKycCompleted: false,
         kycStatus: 'missing',
     },
@@ -74,7 +75,13 @@ const authSlice = createSlice({
         setOtpToken: (state, action) => { state.otpToken = action.payload; },
         setVerifiedToken: (state, action) => { state.verifiedToken = action.payload; },
         toggleRememberMe: (state) => { state.rememberMe = !state.rememberMe; },
-        setLoggedIn: (state, action) => { state.isLoggedIn = action.payload; },
+        setLoggedIn: (state, action) => {
+            state.isLoggedIn = action.payload;
+            state.authChecked = true;
+        },
+        setAuthChecked: (state, action) => {
+            state.authChecked = action.payload;
+        },
         setKycState: (state, action) => {
             state.kycStatus = action.payload || 'missing';
             state.isKycCompleted = ['verified', 'approved'].includes(String(action.payload || '').toLowerCase());
@@ -86,6 +93,7 @@ const authSlice = createSlice({
             state.location = null;
             state.password = '';
             state.isLoggedIn = false;
+            state.authChecked = true;
         },
     },
     extraReducers: (builder) => {
@@ -100,11 +108,6 @@ const authSlice = createSlice({
                 }
             })
             .addCase(detectAndAssignBranchThunk.fulfilled, (state, action) => {
-                const branch = action.payload?.branch;
-                if (branch) {
-                    state.branchId = branch.id;
-                    state.branchName = branch.name;
-                }
                 if (action.payload?.effectiveLocation) {
                     state.location = action.payload.effectiveLocation;
                 }
@@ -112,5 +115,5 @@ const authSlice = createSlice({
     },
 });
 
-export const { setFirstName, setLastName, setBranch, setLocation, setBranchId, setMobile, setPassword, setNewPassword, setConfirmPassword, setOtpDigit, clearOtp, setOtpFlow, setOtpToken, setVerifiedToken, toggleRememberMe, setLoggedIn, setKycState, logout } = authSlice.actions;
+export const { setFirstName, setLastName, setBranch, setLocation, setBranchId, setMobile, setPassword, setNewPassword, setConfirmPassword, setOtpDigit, clearOtp, setOtpFlow, setOtpToken, setVerifiedToken, toggleRememberMe, setLoggedIn, setAuthChecked, setKycState, logout } = authSlice.actions;
 export default authSlice.reducer;

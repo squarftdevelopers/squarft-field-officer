@@ -6,7 +6,7 @@ import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { profileAPI, restoreAuthToken } from "../services/api";
 import { useDispatch } from "react-redux";
-import { setLoggedIn, setKycState, setBranch } from "../store/slices/authSlice";
+import { setLoggedIn, setKycState, setBranch, setAuthChecked } from "../store/slices/authSlice";
 
 const SPLASH_DURATION_MS = 100; // Fast-forward custom splash loop
 
@@ -46,10 +46,15 @@ export default function Index() {
                         } else {
                             routeTo = "/(tabs)/home";
                         }
+                    } else {
+                        dispatch(setAuthChecked(true));
                     }
+                } else {
+                    dispatch(setAuthChecked(true));
                 }
             } catch (err) {
                 console.error("Auth check failed:", err);
+                dispatch(setAuthChecked(true));
             }
 
             const elapsed = Date.now() - startTime;

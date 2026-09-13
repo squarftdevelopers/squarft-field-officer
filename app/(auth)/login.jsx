@@ -25,6 +25,16 @@ import { authAPI } from "../../services/api";
 const logo = require("../../assets/icons/app-icon.png");
 const COUNTRY_CODE = "+91";
 
+const cleanPhoneNumber = (val) => {
+    let digits = String(val || "").replace(/[^0-9]/g, "");
+    if (digits.startsWith("91") && digits.length > 10) {
+        digits = digits.slice(2);
+    } else if (digits.startsWith("0") && digits.length > 10) {
+        digits = digits.slice(1);
+    }
+    return digits.slice(0, 10);
+};
+
 export default function Login() {
     const dispatch = useDispatch();
     const { mobile } = useSelector((state) => state.auth);
@@ -108,7 +118,7 @@ export default function Login() {
                         <View className="w-[1px] h-5 bg-gray-200 mr-3" />
                         <TextInput
                             value={mobile}
-                            onChangeText={(value) => dispatch(setMobile(value.replace(/[^0-9]/g, "").slice(0, 10)))}
+                            onChangeText={(value) => dispatch(setMobile(cleanPhoneNumber(value)))}
                             placeholder="Phone Number"
                             placeholderTextColor="#aaa"
                             keyboardType="phone-pad"

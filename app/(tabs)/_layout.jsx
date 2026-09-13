@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
 import { useEffect, useRef } from "react";
 import { Animated, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -53,9 +53,15 @@ function TabIcon({ name, focused }) {
 
 export default function TabsLayout() {
     const searchActive = useSelector((state) => state.app.searchActive);
+    const isLoggedIn = useSelector((state) => state.auth.isLoggedIn);
+    const authChecked = useSelector((state) => state.auth.authChecked);
     const insets = useSafeAreaInsets();
     const iosBottomPadding = Platform.OS === "ios" ? Math.max(insets.bottom - 8, 6) : 8;
     const androidBottomPadding = Math.max(insets.bottom, 8);
+
+    if (authChecked && !isLoggedIn) {
+        return <Redirect href="/(auth)/onboarding1" />;
+    }
 
     return (
         <>

@@ -165,12 +165,21 @@ export default function Home() {
     const notifications = useSelector((state) => state.notifications?.list || []);
     const { profile, metrics, loading } = useSelector((state) => state.dashboard);
     const officerProfile = useSelector((state) => state.profile.profile);
+    const branchId = useSelector((state) => state.auth.branchId);
+    const authChecked = useSelector((state) => state.auth.authChecked);
+    const isLoggedIn = useSelector((state) => state.auth.isLoggedIn);
     const apiMeetings = useSelector((state) => state.dashboard.tasks?.meetings ?? null);
     const apiFollowUps = useSelector((state) => state.dashboard.tasks?.follow_ups ?? null);
     const { height, width } = useWindowDimensions();
     const leadFormTranslateY = useRef(new Animated.Value(height)).current;
     const notchWidth = Math.min(width * 0.25, 102);
     const notchHeight = 16;
+
+    useEffect(() => {
+        if (authChecked && isLoggedIn && !branchId) {
+            router.replace("/(auth)/location-permission");
+        }
+    }, [authChecked, isLoggedIn, branchId]);
 
     const isFollowUp = activeTab === "followUp";
     const unreadNotifications = notifications.filter((n) => !n.watched).length;
