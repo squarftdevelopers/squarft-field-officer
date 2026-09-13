@@ -3,9 +3,10 @@ import { StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
+import * as Location from "expo-location";
 import { profileAPI, restoreAuthToken } from "../services/api";
 import { useDispatch } from "react-redux";
-import { setLoggedIn, setKycState } from "../store/slices/authSlice";
+import { setLoggedIn, setKycState, setBranch } from "../store/slices/authSlice";
 
 const SPLASH_DURATION_MS = 100; // Fast-forward custom splash loop
 
@@ -23,11 +24,25 @@ export default function Index() {
                 if (token) {
                     const res = await profileAPI.getProfile();
                     if (res && res.success && res.data?.profile) {
-                        const kycStatus = res.data.profile.kyc_status || "missing";
+                        const profile = res.data.profile;
+                        const kycStatus = profile.kyc_status || "missing";
                         dispatch(setKycState(kycStatus));
                         dispatch(setLoggedIn(true));
-                        if (kycStatus === "verified") {
-                            routeTo = "/(tabs)/home";
+
+                        if (profile.branch_id) {
+                            dispatch(setBranch({ id: profile.branch_id, name: '' }));
+                        }
+
+                        let hasLocationPermission = false;
+                        try {
+                            const perm = await Location.getForegroundPermissionsAsync();
+                            hasLocationPermission = perm.status === 'granted';
+                        } catch {
+                            hasLocationPermission = false;
+                        }
+
+                        if (!profile.branch_id || !hasLocationPermission) {
+                            routeTo = "/(auth)/location-permission";
                         } else {
                             routeTo = "/(tabs)/home";
                         }

@@ -1,4 +1,35 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { branchService } from '../../services/branchService';
+
+export const detectAndAssignBranchThunk = createAsyncThunk(
+    'auth/detectAndAssignBranch',
+    async ({ latitude, longitude, clientCity, clientState, locationAddress }, { rejectWithValue }) => {
+        try {
+            const data = await branchService.detectAndAssignBranch({
+                latitude,
+                longitude,
+                clientCity,
+                clientState,
+            });
+            const effectiveLocation = locationAddress || data?.formattedAddress || data?.detectedCity || data?.branch?.city;
+            return { ...data, effectiveLocation };
+        } catch (error) {
+            return rejectWithValue(error.message || 'Unable to detect nearest branch');
+        }
+    }
+);
+
+export const assignBranchThunk = createAsyncThunk(
+    'auth/assignBranch',
+    async ({ branchId, branchName, location }, { rejectWithValue }) => {
+        try {
+            const data = await branchService.assignBranch({ branchId, location });
+            return { ...data, branchId, branchName: branchName || data.branch?.name, location };
+        } catch (error) {
+            return rejectWithValue(error.message || 'Unable to assign branch');
+        }
+    }
+);
 
 const authSlice = createSlice({
     name: 'auth',
@@ -7,6 +38,7 @@ const authSlice = createSlice({
         lastName: '',
         branchId: '',
         branchName: '',
+        location: null,
         mobile: '',
         password: '',
         newPassword: '',
@@ -27,6 +59,8 @@ const authSlice = createSlice({
             state.branchId = action.payload.id;
             state.branchName = action.payload.name;
         },
+        setLocation: (state, action) => { state.location = action.payload; },
+        setBranchId: (state, action) => { state.branchId = action.payload; },
         setMobile: (state, action) => { state.mobile = action.payload; },
         setPassword: (state, action) => { state.password = action.payload; },
         setNewPassword: (state, action) => { state.newPassword = action.payload; },
@@ -49,11 +83,34 @@ const authSlice = createSlice({
             state.mobile = '';
             state.branchId = '';
             state.branchName = '';
+            state.location = null;
             state.password = '';
             state.isLoggedIn = false;
         },
     },
+    extraReducers: (builder) => {
+        builder
+            .addCase(assignBranchThunk.fulfilled, (state, action) => {
+                state.branchId = action.payload.branchId;
+                if (action.payload.branchName) {
+                    state.branchName = action.payload.branchName;
+                }
+                if (action.payload.location) {
+                    state.location = action.payload.location;
+                }
+            })
+            .addCase(detectAndAssignBranchThunk.fulfilled, (state, action) => {
+                const branch = action.payload?.branch;
+                if (branch) {
+                    state.branchId = branch.id;
+                    state.branchName = branch.name;
+                }
+                if (action.payload?.effectiveLocation) {
+                    state.location = action.payload.effectiveLocation;
+                }
+            });
+    },
 });
 
-export const { setFirstName, setLastName, setBranch, setMobile, setPassword, setNewPassword, setConfirmPassword, setOtpDigit, clearOtp, setOtpFlow, setOtpToken, setVerifiedToken, toggleRememberMe, setLoggedIn, setKycState, logout } = authSlice.actions;
+export const { setFirstName, setLastName, setBranch, setLocation, setBranchId, setMobile, setPassword, setNewPassword, setConfirmPassword, setOtpDigit, clearOtp, setOtpFlow, setOtpToken, setVerifiedToken, toggleRememberMe, setLoggedIn, setKycState, logout } = authSlice.actions;
 export default authSlice.reducer;

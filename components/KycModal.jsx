@@ -10,8 +10,20 @@ export default function KycModal() {
   const pathname = usePathname();
   const ref = useRef(null);
   const snapPoints = useMemo(() => ['65%'], []);
-  const { isLoggedIn, isKycCompleted, kycStatus } = useSelector((state) => state.auth);
-  const visible = isLoggedIn && !isKycCompleted && !pathname.includes('kyc');
+  const { isLoggedIn, isKycCompleted, kycStatus, branchId } = useSelector((state) => state.auth);
+
+  const isAuthPath =
+    pathname === '/' ||
+    pathname.includes('(auth)') ||
+    pathname.includes('onboarding') ||
+    pathname.includes('login') ||
+    pathname.includes('register') ||
+    pathname.includes('otp-verification') ||
+    pathname.includes('location-permission');
+
+  const hasAssignedBranch = Boolean(branchId);
+  const shouldHideForRoute = isAuthPath || pathname.includes('kyc');
+  const visible = isLoggedIn && hasAssignedBranch && !isKycCompleted && !shouldHideForRoute;
   const rejected = String(kycStatus || '').toLowerCase() === 'rejected';
 
   useEffect(() => {

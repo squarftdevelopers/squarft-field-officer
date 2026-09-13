@@ -1,16 +1,17 @@
 import { Text, View, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, Keyboard } from "react-native";
+import * as Location from "expo-location";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { setOtpDigit, clearOtp, setLoggedIn, setKycState, setVerifiedToken, setOtpToken } from "../../store/slices/authSlice";
+import { setOtpDigit, clearOtp, setLoggedIn, setKycState, setVerifiedToken, setOtpToken, setBranch } from "../../store/slices/authSlice";
 import { authAPI } from "../../services/api";
 
 const logo = require("../../assets/icons/app-icon.png");
 
 export default function OtpVerification() {
     const dispatch = useDispatch();
-    const { otp, otpFlow, otpToken, mobile, firstName, lastName, branchId } = useSelector((state) => state.auth);
+    const { otp, otpFlow, otpToken, mobile, firstName, lastName } = useSelector((state) => state.auth);
     const inputs = useRef([]);
     const autoSubmittedRef = useRef(false);
     const [loading, setLoading] = useState(false);
@@ -18,19 +19,18 @@ export default function OtpVerification() {
 
     useEffect(() => {
         autoSubmittedRef.current = false;
-        const focusTimeout = setTimeout(() => inputs.current[0]?.focus(), 300);
-        return () => clearTimeout(focusTimeout);
+        inputs.current[0]?.focus();
     }, []);
 
     const handleChange = (text, index) => {
         const digits = text.replace(/[^0-9]/g, '');
 
         if (digits.length > 1) {
-            digits.slice(0, otp.length).split('').forEach((digit, digitIndex) => {
-                dispatch(setOtpDigit({ index: digitIndex, value: digit }));
+            digits.slice(0, 6).split('').forEach((d, i) => {
+                dispatch(setOtpDigit({ index: i, value: d }));
             });
-            const lastFilledIndex = Math.min(digits.length, otp.length) - 1;
-            if (digits.length < otp.length) {
+            const lastFilledIndex = Math.min(digits.length, 6) - 1;
+            if (digits.length < 6) {
                 inputs.current[lastFilledIndex + 1]?.focus();
             } else {
                 Keyboard.dismiss();
@@ -40,7 +40,7 @@ export default function OtpVerification() {
 
         const digit = digits.slice(-1);
         dispatch(setOtpDigit({ index, value: digit }));
-        if (digit && index < otp.length - 1) {
+        if (digit && index < 5) {
             inputs.current[index + 1]?.focus();
         }
     };
@@ -64,31 +64,41 @@ export default function OtpVerification() {
             
             if (otpFlow === 'login') {
                 const login = await authAPI.login(response.verified_token);
-                const kycStatus = login.user?.kyc_status || 'missing';
+                const userObj = login.user;
+                const kycStatus = userObj?.kyc_status || 'missing';
                 dispatch(setKycState(kycStatus));
                 dispatch(setLoggedIn(true));
 
-                if (kycStatus === 'verified') {
-                    router.replace("/(tabs)/home");
-                } else {
-                    router.replace("/(tabs)/home");
+                if (userObj?.branch_id) {
+                    dispatch(setBranch({ id: userObj.branch_id, name: '' }));
                 }
+
+                let hasLocationPermission = false;
+                try {
+                    const perm = await Location.getForegroundPermissionsAsync();
+                    hasLocationPermission = perm.status === 'granted';
+                } catch {
+                    hasLocationPermission = false;
+                }
+
+                if (!userObj?.branch_id || !hasLocationPermission) {
+                    router.replace('/(auth)/location-permission');
+                    return;
+                }
+
+                router.replace("/(tabs)/home");
             } else if (otpFlow === 'register') {
                 dispatch(setVerifiedToken(response.verified_token));
                 const registration = await authAPI.register(
                     response.verified_token,
                     firstName.trim(),
                     lastName.trim(),
-                    branchId,
                 );
-                const kycStatus = registration.user?.kyc_status || 'missing';
+                const userObj = registration.user;
+                const kycStatus = userObj?.kyc_status || 'missing';
                 dispatch(setKycState(kycStatus));
                 dispatch(setLoggedIn(true));
-                if (kycStatus === 'verified') {
-                    router.replace("/(tabs)/home");
-                } else {
-                    router.replace("/(tabs)/home");
-                }
+                router.replace('/(auth)/location-permission');
             }
             dispatch(clearOtp());
         } catch (error) {
@@ -96,7 +106,7 @@ export default function OtpVerification() {
         } finally {
             setLoading(false);
         }
-    }, [branchId, dispatch, firstName, lastName, otp, otpFlow, otpToken]);
+    }, [dispatch, firstName, lastName, otp, otpFlow, otpToken]);
 
     useEffect(() => {
         const otpCode = otp.join('');

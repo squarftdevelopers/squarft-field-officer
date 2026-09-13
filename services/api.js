@@ -67,12 +67,12 @@ export const authAPI = {
     return data;
   },
 
-  register: async (verified_token, first_name, last_name, branch_id, location) => {
+  register: async (verified_token, first_name, last_name, branch_id = null, location = null) => {
     const { data } = await api.post('/api/v1/field-officer/auth/register', {
       verified_token,
       first_name,
       last_name,
-      branch_id,
+      branch_id: branch_id || null,
       location: location || null,
     });
     if (data.token) {
