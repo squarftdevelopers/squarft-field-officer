@@ -8,7 +8,7 @@ import { profileAPI, restoreAuthToken } from "../services/api";
 import { useDispatch } from "react-redux";
 import { setLoggedIn, setKycState, setBranch, setAuthChecked } from "../store/slices/authSlice";
 
-const SPLASH_DURATION_MS = 100; // Fast-forward custom splash loop
+const SPLASH_DURATION_MS = 650;
 
 export default function Index() {
     const router = useRouter();

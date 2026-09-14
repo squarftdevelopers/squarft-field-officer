@@ -2,8 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 
-const ANIMATION_DURATION_MS = 3000;
-const FADE_DURATION_MS = 500;
+const ANIMATION_DURATION_MS = 1500;
+const FADE_DURATION_MS = 280;
 
 export default function AnimatedSplashScreen({ onFinish }) {
     const opacity = useRef(new Animated.Value(1)).current;
