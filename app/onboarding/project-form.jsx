@@ -16,6 +16,7 @@ import {
     Modal,
     ActivityIndicator,
     Linking,
+    FlatList,
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Stack, router, useLocalSearchParams } from "expo-router";
@@ -43,7 +44,7 @@ import {
 } from "../../store/slices/projectSlice";
 import { completeProjectOnboarding, saveProjectOnboardingDraft, selectProjectById } from "../../store/slices/projectsSlice";
 import { addNotification } from "../../store/slices/notificationSlice";
-import { projectFormApi, leadsAPI, projectMembersAPI } from "../../services/api";
+import { projectFormApi, leadsAPI } from "../../services/api";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
@@ -237,6 +238,26 @@ export default function AddProject() {
     const [step1Errors, setStep1Errors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [draftReady, setDraftReady] = useState(false);
+    const [draftsVisible, setDraftsVisible] = useState(false);
+    const [drafts, setDrafts] = useState([]);
+    const [draftsLoading, setDraftsLoading] = useState(false);
+
+    const loadDrafts = async () => {
+        setDraftsLoading(true);
+        try {
+            const res = await projectFormApi.getDraftProjects();
+            setDrafts(res.data?.data || []);
+        } catch (error) {
+            console.error("Failed to load drafts", error);
+        } finally {
+            setDraftsLoading(false);
+        }
+    };
+
+    const openDrafts = () => {
+        setDraftsVisible(true);
+        loadDrafts();
+    };
 
     useEffect(() => {
         scrollRef.current?.scrollToPosition?.(0, 0, false);
@@ -262,8 +283,8 @@ export default function AddProject() {
                     pincode: existingProject.pincode || "",
                     salesOfficerName: existingProject.contactPerson || "",
                     salesOfficerContact: (existingProject.phoneNumber || "").replace(/^\+91/, ""),
-                    responsiblePersonName: existingProject.contactPerson || existingProject.developerName || "",
-                    responsiblePersonContact: (existingProject.phoneNumber || "").replace(/^\+91/, ""),
+                    responsiblePersonName: existingProject.responsiblePerson || "",
+                    responsiblePersonContact: (existingProject.responsiblePhoneNumber || "").replace(/^\+91/, ""),
                 }),
             );
 
@@ -355,8 +376,8 @@ export default function AddProject() {
                                     pincode: lead.pincode || "",
                                     salesOfficerName: lead.contact_person || "",
                                     salesOfficerContact: (lead.contact_number || lead.phoneNumber || "").replace(/^\+91/, ""),
-                                    responsiblePersonName: lead.builder_name || lead.contact_person || "",
-                                    responsiblePersonContact: (lead.contact_number || lead.phoneNumber || "").replace(/^\+91/, ""),
+                                    responsiblePersonName: lead.responsible_person_name || "",
+                                    responsiblePersonContact: (lead.responsible_person_contact || "").replace(/^\+91/, ""),
                                 }),
                             );
 
@@ -431,8 +452,8 @@ export default function AddProject() {
             errors.state = 'State is required';
         }
 
-        if (!values.pincode || !/^[0-9]{5,6}$/.test(values.pincode.trim())) {
-            errors.pincode = 'Enter a valid pincode (5-6 digits)';
+        if (!values.pincode || !/^[0-9]{6}$/.test(values.pincode.trim())) {
+            errors.pincode = 'Enter a valid 6-digit pincode';
         }
 
         const nameValidator = (v) => v && v.trim().length >= 2;
@@ -493,6 +514,7 @@ export default function AddProject() {
     const resumeDraft = async (projectIdToResume) => {
         dispatch(resetForm());
         dispatch(setProjectId(projectIdToResume));
+        setDraftsVisible(false);
 
         try {
             const res = await projectFormApi.getProjectFormResume(projectIdToResume);
@@ -859,10 +881,10 @@ export default function AddProject() {
                 dispatch(updateStep6({
                     images: savedMedia
                         .filter(m => m.media_type === 'image')
-                        .map(m => ({ uri: m.url, isRemote: true })),
+                        .map(m => ({ uri: m.url, key: m.key, isRemote: true })),
                     documents: savedMedia
                         .filter(m => m.media_type === 'document')
-                        .map(m => ({ uri: m.url, name: m.label || 'Document', mimeType: '', isRemote: true })),
+                        .map(m => ({ uri: m.url, key: m.key, name: m.label || 'Document', mimeType: '', isRemote: true })),
                 }));
             }
 
@@ -938,7 +960,20 @@ export default function AddProject() {
         return result;
     };
 
-    const handleNext = async () => {
+    const handleNext = async (opts) => {
+        const saveOnly = opts?.save === true;
+        const finishStep = async (nextStep, pid = projectId) => {
+            const resumeStep = saveOnly ? currentStep : nextStep;
+            if (pid) {
+                try {
+                    await projectFormApi.updateResumeStep(pid, resumeStep);
+                } catch (error) {
+                    console.warn("Failed to record resume step:", error?.response?.data || error.message);
+                }
+            }
+            if (saveOnly) alert('Draft saved.');
+            else dispatch(setStep(nextStep));
+        };
         if (currentStep === 1) {
             const { valid, errors } = validateStep1Fields(step1);
             if (!valid) {
@@ -949,7 +984,7 @@ export default function AddProject() {
 
             // If draft already created (user went back), skip re-creating
             if (projectId) {
-                dispatch(setStep(2));
+                await finishStep(2);
                 return;
             }
 
@@ -969,7 +1004,7 @@ export default function AddProject() {
                     lead_id: leadProjectId || undefined,
                 });
                 dispatch(setProjectId(res.data.data.project_id));
-                dispatch(setStep(2));
+                await finishStep(2, res.data.data.project_id);
             } catch (error) {
                 const msg = error.response?.data?.message || "Failed to save project. Please try again.";
                 setStep1Errors({ api: msg });
@@ -986,7 +1021,7 @@ export default function AddProject() {
             }
 
             if (!shouldUseProjectFormApi) {
-                dispatch(setStep(3));
+                await finishStep(3);
                 return;
             }
 
@@ -997,7 +1032,7 @@ export default function AddProject() {
                     sub_type: t.subType,
                 }));
                 await projectFormApi.configurePropertyTypes(projectId, { property_types });
-                dispatch(setStep(3));
+                await finishStep(3);
             } catch (error) {
                 console.error("Step 2 API error:", error);
                 const msg = error.response?.data?.message || "Failed to save property types. Please try again.";
@@ -1055,9 +1090,15 @@ export default function AddProject() {
                                 const uploadedImages = [];
                                 if (blueprint.images && Array.isArray(blueprint.images)) {
                                     for (let i = 0; i < blueprint.images.length; i++) {
-                                        const imgUri = blueprint.images[i];
-                                        if (imgUri.startsWith('http')) {
-                                            uploadedImages.push(imgUri);
+                                        const image = blueprint.images[i];
+                                        const imageKey = typeof image === 'object' ? image.key : null;
+                                        const imgUri = typeof image === 'string' ? image : image?.uri || image?.url || '';
+                                        if (imageKey) {
+                                            uploadedImages.push(imageKey);
+                                        } else if (imgUri.startsWith('http')) {
+                                            // A signed preview URL is not a valid API media key.
+                                            // Resumed media should include `key`; skip stale previews.
+                                            continue;
                                         } else {
                                             const formData = new FormData();
                                             formData.append('file', {
@@ -1067,8 +1108,8 @@ export default function AddProject() {
                                             });
                                             try {
                                                 const uploadRes = await projectFormApi.uploadMedia(projectId, formData);
-                                                const url = uploadRes.data?.data?.url || uploadRes.data?.url;
-                                                if (url) uploadedImages.push(url);
+                                                const key = uploadRes.data?.data?.key || uploadRes.data?.key;
+                                                if (key) uploadedImages.push(key);
                                             } catch (uploadErr) {
                                                 console.error("Failed to upload variant image:", uploadErr);
                                             }
@@ -1077,23 +1118,29 @@ export default function AddProject() {
                                 }
 
                                 // Upload variant brochure first if local
-                                let uploadedBrochureUrl = null;
+                                let uploadedBrochureKey = null;
                                 if (blueprint.brochure) {
-                                    if (typeof blueprint.brochure === 'string' && blueprint.brochure.startsWith('http')) {
-                                        uploadedBrochureUrl = blueprint.brochure;
-                                    } else if (blueprint.brochure.uri) {
-                                        if (blueprint.brochure.uri.startsWith('http')) {
-                                            uploadedBrochureUrl = blueprint.brochure.uri;
+                                    const brochure = blueprint.brochure;
+                                    const brochureKey = typeof brochure === 'object' ? brochure.key : null;
+                                    const brochureUri = typeof brochure === 'string' ? brochure : brochure.uri || brochure.url || '';
+                                    if (brochureKey) {
+                                        uploadedBrochureKey = brochureKey;
+                                    } else if (brochureUri.startsWith('http')) {
+                                        // Keep temporary signed URLs out of the variant API payload.
+                                        uploadedBrochureKey = null;
+                                    } else if (brochureUri) {
+                                        if (brochureUri.startsWith('http')) {
+                                            uploadedBrochureKey = null;
                                         } else {
                                             const formData = new FormData();
                                             formData.append('file', {
-                                                uri: blueprint.brochure.uri,
-                                                name: blueprint.brochure.name || 'brochure.pdf',
-                                                type: blueprint.brochure.mimeType || 'application/pdf',
+                                                uri: brochureUri,
+                                                name: brochure.name || 'brochure.pdf',
+                                                type: brochure.mimeType || 'application/pdf',
                                             });
                                             try {
                                                 const uploadRes = await projectFormApi.uploadMedia(projectId, formData);
-                                                uploadedBrochureUrl = uploadRes.data?.data?.url || uploadRes.data?.url || null;
+                                                uploadedBrochureKey = uploadRes.data?.data?.key || uploadRes.data?.key || null;
                                             } catch (uploadErr) {
                                                 console.error("Failed to upload variant brochure:", uploadErr);
                                             }
@@ -1113,7 +1160,7 @@ export default function AddProject() {
                                     images:           uploadedImages,
                                     amenities:        (blueprint.amenities || []).filter(Boolean),
                                     extra_charges:    (blueprint.extraCharges || blueprint.extra_charges || []).filter(charge => charge && charge.title),
-                                    brochure_url:     uploadedBrochureUrl,
+                                    brochure_url:     uploadedBrochureKey,
                                     floors:           sectionFloors,
                                     units_per_floor:  sectionUnitsPerFloor,
                                 };
@@ -1152,10 +1199,11 @@ export default function AddProject() {
                     })
                 );
 
-                dispatch(setStep(4));
+                await finishStep(4);
             } catch (error) {
                 console.error("Step 3 API error:", error);
-                dispatch(setStep(4));
+                const msg = error.response?.data?.message || "Failed to save property details. Please try again.";
+                setStep1Errors({ api: msg });
             } finally {
                 setIsSubmitting(false);
             }
@@ -1165,7 +1213,7 @@ export default function AddProject() {
         if (currentStep < 6) {
             // Step 4 Next → call step4-finalize
             if (currentStep === 4) {
-                if (!projectId || !shouldUseProjectFormApi) { dispatch(setStep(5)); return; }
+                if (!projectId || !shouldUseProjectFormApi) { await finishStep(5); return; }
                 try {
                     setIsSubmitting(true);
 
@@ -1216,7 +1264,7 @@ export default function AddProject() {
                         bank_account: null,
                         approvals,
                     });
-                    dispatch(setStep(5));
+                    await finishStep(5);
                 } catch (error) {
                     console.error("Step 4 API error:", error);
                     const msg = error.response?.data?.message || "Failed to save approvals. Please try again.";
@@ -1229,7 +1277,7 @@ export default function AddProject() {
 
             // Step 5 Next → call step5-finalize
             if (currentStep === 5) {
-                if (!projectId || !shouldUseProjectFormApi) { dispatch(setStep(6)); return; }
+                if (!projectId || !shouldUseProjectFormApi) { await finishStep(6); return; }
                 try {
                     setIsSubmitting(true);
 
@@ -1321,18 +1369,19 @@ export default function AddProject() {
                             financial_ownership_remarks:     step5.financialOwnershipRemarks || null,
                         },
                     });
-                    dispatch(setStep(6));
+                    await finishStep(6);
                 } catch (error) {
                     console.error("Step 5 API error:", error);
                     // Non-blocking — proceed to step 6
-                    dispatch(setStep(6));
+                    const msg = error.response?.data?.message || "Failed to save finance details. Please try again.";
+                    setStep1Errors({ api: msg });
                 } finally {
                     setIsSubmitting(false);
                 }
                 return;
             }
 
-            dispatch(setStep(currentStep + 1));
+            await finishStep(currentStep + 1);
         } else {
             // Step 6 Submit → upload images then call step6-finalize
             if (!projectId) {
@@ -1360,8 +1409,8 @@ export default function AddProject() {
                 // Upload images
                 for (let i = 0; i < step6.images.length; i++) {
                     const img = step6.images[i];
-                    if (img.uri?.startsWith('http')) {
-                        mediaItems.push({ media_type: 'image', url: img.uri, is_cover: i === 0, sort_order: i });
+                    if (img.isRemote && img.key) {
+                        mediaItems.push({ media_type: 'image', url: img.key, is_cover: i === 0, sort_order: i });
                         continue;
                     }
                     const formData = new FormData();
@@ -1371,17 +1420,16 @@ export default function AddProject() {
                         type: img.mimeType || 'image/jpeg',
                     });
                     const uploadRes = await projectFormApi.uploadMedia(projectId, formData);
-                    const url = uploadRes.data?.data?.url || uploadRes.data?.url;
-                    if (url) {
-                        mediaItems.push({ media_type: 'image', url, is_cover: i === 0, sort_order: mediaItems.length });
-                    }
+                    const key = uploadRes.data?.data?.key;
+                    if (!key) throw new Error('Image upload did not return a permanent file key.');
+                    mediaItems.push({ media_type: 'image', url: key, is_cover: i === 0, sort_order: i });
                 }
 
                 // Upload documents
                 for (let i = 0; i < (step6.documents || []).length; i++) {
                     const doc = step6.documents[i];
-                    if (doc.uri?.startsWith('http')) {
-                        mediaItems.push({ media_type: 'document', url: doc.uri, label: doc.name || `Document ${i + 1}`, sort_order: mediaItems.length });
+                    if (doc.isRemote && doc.key) {
+                        mediaItems.push({ media_type: 'document', url: doc.key, label: doc.name || `Document ${i + 1}`, sort_order: step6.images.length + i });
                         continue;
                     }
                     const formData = new FormData();
@@ -1391,13 +1439,18 @@ export default function AddProject() {
                         type: doc.mimeType || 'application/pdf',
                     });
                     const uploadRes = await projectFormApi.uploadMedia(projectId, formData);
-                    const url = uploadRes.data?.data?.url || uploadRes.data?.url;
-                    if (url) {
-                        mediaItems.push({ media_type: 'document', url, label: doc.name || `Document ${i + 1}`, sort_order: mediaItems.length });
-                    }
+                    const key = uploadRes.data?.data?.key;
+                    if (!key) throw new Error('Document upload did not return a permanent file key.');
+                    mediaItems.push({ media_type: 'document', url: key, label: doc.name || `Document ${i + 1}`, sort_order: step6.images.length + i });
                 }
 
-                await projectFormApi.finalizeStep6(projectId, { media: mediaItems });
+                await projectFormApi.finalizeStep6(projectId, { media: mediaItems, publish: !saveOnly });
+
+                if (saveOnly) {
+                    await projectFormApi.updateResumeStep(projectId, 6);
+                    alert('Draft saved.');
+                    return;
+                }
 
                 dispatch(completeProjectOnboarding({ projectId, onboardingData: buildOnboardingData(mediaItems) }));
                 dispatch(addNotification({
@@ -1481,6 +1534,7 @@ export default function AddProject() {
     };
 
     return (
+        <>
         <View className="flex-1 bg-[#F8F9FE]">
                 <Stack.Screen options={{ headerShown: false }} />
                 <StatusBar barStyle="light-content" />
@@ -1506,7 +1560,28 @@ export default function AddProject() {
                                 <Ionicons name="arrow-back" size={20} color="white" />
                             </TouchableOpacity>
                             <Text className="text-white text-base font-lato-bold">Add Project</Text>
-                            <View style={{ width: 20 }} />
+                            <View className="flex-row items-center gap-2">
+                                <TouchableOpacity
+                                    onPress={() => handleNext({ save: true })}
+                                    disabled={isSubmitting}
+                                    className="flex-row items-center gap-1 px-2 py-1 rounded-lg bg-white/20"
+                                    style={{ opacity: isSubmitting ? 0.5 : 1 }}
+                                >
+                                    {isSubmitting ? (
+                                        <ActivityIndicator size="small" color="white" />
+                                    ) : (
+                                        <Ionicons name="save-outline" size={14} color="white" />
+                                    )}
+                                    <Text className="text-white text-xs font-lato-bold">Save</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={openDrafts}
+                                    className="flex-row items-center gap-1 px-2 py-1 rounded-lg bg-white/20"
+                                >
+                                    <Ionicons name="document-text-outline" size={14} color="white" />
+                                    <Text className="text-white text-xs font-lato-bold">Drafts</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
                         {/* Step Indicator */}
@@ -1582,6 +1657,55 @@ export default function AddProject() {
                         </KeyboardAwareScrollView>
                     </View>
                 </View>
+                <Modal visible={draftsVisible} animationType="slide" transparent onRequestClose={() => setDraftsVisible(false)}>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+                        <View style={{ backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '75%' }}>
+                            <View className="flex-row items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+                                <Text className="text-base font-lato-bold text-gray-900">Incomplete Drafts</Text>
+                                <TouchableOpacity onPress={() => setDraftsVisible(false)}>
+                                    <Ionicons name="close" size={22} color="#374151" />
+                                </TouchableOpacity>
+                            </View>
+                            {draftsLoading ? (
+                                <View className="items-center justify-center py-12">
+                                    <ActivityIndicator size="large" color="#4A43EC" />
+                                </View>
+                            ) : drafts.length === 0 ? (
+                                <View className="items-center justify-center py-12">
+                                    <Ionicons name="document-outline" size={40} color="#D1D5DB" />
+                                    <Text className="text-gray-400 mt-3 font-lato-medium">No drafts found</Text>
+                                </View>
+                            ) : (
+                                <FlatList
+                                    data={drafts}
+                                    keyExtractor={(item) => String(item.id)}
+                                    contentContainerStyle={{ padding: 16, gap: 10 }}
+                                    renderItem={({ item }) => (
+                                        <TouchableOpacity
+                                            onPress={() => resumeDraft(item.id)}
+                                            style={{ backgroundColor: '#F9FAFB', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E5E7EB' }}
+                                        >
+                                            <View className="flex-row items-center justify-between">
+                                                <View style={{ flex: 1 }}>
+                                                    <Text className="text-sm font-lato-bold text-gray-900" numberOfLines={1}>{item.name}</Text>
+                                                    <Text className="text-xs text-gray-500 mt-0.5 font-lato-medium">{item.city}{item.city && item.location ? ', ' : ''}{item.location}</Text>
+                                                    <Text className="text-[10px] text-gray-400 mt-1">
+                                                        Last updated: {item.updated_at ? new Date(item.updated_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently'}
+                                                    </Text>
+                                                </View>
+                                                <View className="flex-row items-center gap-1 ml-3">
+                                                    <Text className="text-xs text-[#4A43EC] font-lato-bold">Resume</Text>
+                                                    <Ionicons name="arrow-forward" size={14} color="#4A43EC" />
+                                                </View>
+                                            </View>
+                                        </TouchableOpacity>
+                                    )}
+                                />
+                            )}
+                        </View>
+                    </View>
+                </Modal>
+                </>
     );
 }
 
@@ -1591,53 +1715,6 @@ function Step1({ errors = {}, setErrors }) {
     const { step1 } = useSelector((state) => state.project);
     const [fetchingLocation, setFetchingLocation] = useState(false);
     const [mapModalVisible, setMapModalVisible] = useState(false);
-    const [searchModalVisible, setSearchModalVisible] = useState(false);
-    const [searchQuery, setSearchQuery] = useState("");
-    const [searchResults, setSearchResults] = useState([]);
-    const [searching, setSearching] = useState(false);
-    const [inlineSuggestions, setInlineSuggestions] = useState([]);
-
-    const handlePhoneChange = async (val) => {
-        updateField('responsiblePersonContact', val);
-        const digits = val.replace(/\D/g, "");
-        if (digits.length < 3) {
-            setInlineSuggestions([]);
-            return;
-        }
-        try {
-            const res = await projectMembersAPI.getAssignableUsers("project_developer", digits);
-            setInlineSuggestions(res.data?.data || []);
-        } catch (err) {
-            console.log("Error querying inline suggestions:", err.message);
-        }
-    };
-
-    const handleSearchDeveloper = async (text) => {
-        setSearchQuery(text);
-        if (!text.trim()) {
-            setSearchResults([]);
-            return;
-        }
-        try {
-            setSearching(true);
-            const res = await projectMembersAPI.getAssignableUsers("project_developer", text);
-            setSearchResults(res.data?.data || []);
-        } catch (err) {
-            console.log("Error searching users:", err?.response?.data || err.message);
-        } finally {
-            setSearching(false);
-        }
-    };
-
-    const handleSelectDeveloper = (user) => {
-        updateField('responsiblePersonName', `${user.first_name} ${user.last_name || ""}`.trim());
-        const cleanPhone = (user.phone || "").replace(/^\+91/, "");
-        updateField('responsiblePersonContact', cleanPhone);
-        setSearchModalVisible(false);
-        setSearchQuery("");
-        setSearchResults([]);
-    };
-
     const [mapRegion, setMapRegion] = useState({
         latitude: 22.7196,
         longitude: 75.8577,
@@ -1995,28 +2072,18 @@ function Step1({ errors = {}, setErrors }) {
 
             {/* Responsible Person Section */}
             <View>
-                <View className="flex-row justify-between items-center mb-1.5">
-                    <Text className="text-xs font-lato-bold text-black">Responsible person name</Text>
-                    <TouchableOpacity
-                        onPress={() => setSearchModalVisible(true)}
-                        activeOpacity={0.7}
-                        className="flex-row items-center"
-                    >
-                        <Ionicons name="search" size={11} color="#4A43EC" style={{ marginRight: 2 }} />
-                        <Text className="text-[11px] font-lato-bold text-[#4A43EC]">Select Existing Developer</Text>
-                    </TouchableOpacity>
-                </View>
-                <Pressable onPress={() => respNameRef.current?.focus()} className="bg-white border border-gray-200 rounded-xl px-4 h-12 justify-center">
+                <Text className="text-xs font-lato-bold text-black mb-1.5">Responsible person name</Text>
+                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 h-12 justify-center">
                     <TextInput
                         ref={respNameRef}
                         className="text-[13px] text-gray-800 font-lato-medium"
-                        placeholder="eg. manas gangrade"
+                        placeholder="Responsible person from acquisition"
                         placeholderTextColor="#9CA3AF"
                         value={step1.responsiblePersonName}
-                        onChangeText={(v) => updateField('responsiblePersonName', v)}
+                        editable={false}
                         style={{ paddingVertical: 0, textAlignVertical: 'center', includeFontPadding: false }}
                     />
-                </Pressable>
+                </View>
                 {errors.responsiblePersonName && (
                     <Text className="text-[11px] text-red-500 mt-1">{errors.responsiblePersonName}</Text>
                 )}
@@ -2024,137 +2091,22 @@ function Step1({ errors = {}, setErrors }) {
 
             <View>
                 <Text className="text-xs font-lato-bold text-black mb-1.5">Contact No.</Text>
-                <Pressable onPress={() => respContactRef.current?.focus()} className="flex-row bg-white border border-gray-200 rounded-xl px-4 h-12 items-center">
+                <View className="flex-row bg-gray-50 border border-gray-200 rounded-xl px-4 h-12 items-center">
                     <TextInput
                         ref={respContactRef}
                         className="flex-1 text-[13px] text-gray-800 font-lato-medium"
-                        placeholder="eg. 8120180101"
+                        placeholder="Contact from acquisition"
                         placeholderTextColor="#9CA3AF"
                         keyboardType="phone-pad"
                         value={step1.responsiblePersonContact}
-                        onChangeText={handlePhoneChange}
+                        editable={false}
                         style={{ paddingVertical: 0, textAlignVertical: 'center', includeFontPadding: false }}
                     />
-                </Pressable>
+                </View>
                 {errors.responsiblePersonContact && (
                     <Text className="text-[11px] text-red-500 mt-1">{errors.responsiblePersonContact}</Text>
                 )}
-
-                {inlineSuggestions.length > 0 && (
-                    <View className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl mt-2 p-2 gap-2">
-                        <Text className="text-[10px] font-lato-bold text-[#64748B] px-1">Found existing developer(s):</Text>
-                        {inlineSuggestions.map((user) => (
-                            <TouchableOpacity
-                                key={user.id}
-                                activeOpacity={0.7}
-                                onPress={() => {
-                                    updateField('responsiblePersonName', `${user.first_name} ${user.last_name || ""}`.trim());
-                                    updateField('responsiblePersonContact', (user.phone || "").replace(/^\+91/, ""));
-                                    setInlineSuggestions([]);
-                                }}
-                                className="flex-row justify-between items-center bg-white border border-[#E2E8F0] rounded-lg p-2.5"
-                            >
-                                <View className="flex-1 mr-2">
-                                    <Text className="text-[12px] font-lato-bold text-black">{user.first_name} {user.last_name || ""}</Text>
-                                    <Text className="text-[10px] text-[#64748B] mt-0.5">{user.phone}</Text>
-                                </View>
-                                <View className="bg-[#4A43EC]/10 px-2 py-1 rounded">
-                                    <Text className="text-[10px] font-lato-bold text-[#4A43EC]">Use</Text>
-                                </View>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                )}
             </View>
-
-            <Modal
-                visible={searchModalVisible}
-                animationType="slide"
-                onRequestClose={() => setSearchModalVisible(false)}
-            >
-                <SafeAreaView className="flex-1 bg-white">
-                    <View className="flex-row items-center justify-between px-4 py-3 border-b border-[#F1F5F9]">
-                        <Text className="text-[16px] font-lato-bold text-[#111827]">Select Project Developer</Text>
-                        <TouchableOpacity
-                            activeOpacity={0.75}
-                            onPress={() => {
-                                setSearchModalVisible(false);
-                                setSearchQuery("");
-                                setSearchResults([]);
-                            }}
-                            className="p-1"
-                        >
-                            <Ionicons name="close" size={20} color="#64748B" />
-                        </TouchableOpacity>
-                    </View>
-
-                    <View className="px-4 py-3 bg-[#F8FAFC]">
-                        <View className="h-10 flex-row items-center rounded-[10px] border border-[#E2E8F0] bg-white px-3">
-                            <Ionicons name="search-outline" size={15} color="#8A94A6" />
-                            <TextInput
-                                value={searchQuery}
-                                onChangeText={handleSearchDeveloper}
-                                placeholder="Search by name, email or phone..."
-                                placeholderTextColor="#9CA3AF"
-                                className="ml-2 flex-1 text-[12px] text-[#111827]"
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                            />
-                            {searchQuery ? (
-                                <TouchableOpacity activeOpacity={0.75} onPress={() => handleSearchDeveloper("")}>
-                                    <Ionicons name="close-circle" size={15} color="#9CA3AF" />
-                                </TouchableOpacity>
-                            ) : null}
-                        </View>
-                    </View>
-
-                    <ScrollView
-                        className="flex-1 px-4"
-                        contentContainerStyle={{ paddingTop: 10, paddingBottom: 20 }}
-                        keyboardShouldPersistTaps="handled"
-                    >
-                        {searching ? (
-                            <View className="py-8 items-center">
-                                <ActivityIndicator size="small" color="#4A43EC" />
-                            </View>
-                        ) : searchQuery && searchResults.length === 0 ? (
-                            <View className="py-8 items-center">
-                                <Text className="text-[12px] text-[#64748B]">No project developers found</Text>
-                            </View>
-                        ) : !searchQuery ? (
-                            <View className="py-8 items-center">
-                                <Text className="text-[12px] text-[#94A3B8]">Type to search for active project developers</Text>
-                            </View>
-                        ) : (
-                            searchResults.map((user) => (
-                                <TouchableOpacity
-                                    key={user.id}
-                                    activeOpacity={0.7}
-                                    onPress={() => handleSelectDeveloper(user)}
-                                    className="flex-row items-center justify-between border-b border-[#F1F5F9] py-3"
-                                >
-                                    <View className="flex-1 mr-3">
-                                        <Text className="text-[13px] font-lato-bold text-[#111827]">
-                                            {user.first_name} {user.last_name || ""}
-                                        </Text>
-                                        {user.company_name && (
-                                            <Text className="text-[10px] text-[#64748B] mt-0.5">
-                                                Company: {user.company_name}
-                                            </Text>
-                                        )}
-                                        <Text className="text-[10px] text-[#94A3B8] mt-0.5">
-                                            {user.email || user.phone}
-                                        </Text>
-                                    </View>
-                                    <View className="h-7 items-center justify-center rounded-[6px] bg-[#4A43EC]/10 px-3">
-                                        <Text className="text-[10px] font-lato-bold text-[#4A43EC]">Select</Text>
-                                    </View>
-                                </TouchableOpacity>
-                            ))
-                        )}
-                    </ScrollView>
-                </SafeAreaView>
-            </Modal>
         </View>
     );
 }

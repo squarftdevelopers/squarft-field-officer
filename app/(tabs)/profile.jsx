@@ -207,6 +207,12 @@ export default function Profile() {
     };
 
     const handleKycPress = () => {
+        const kycStatus = String(profile?.kyc_status || "missing").toLowerCase();
+        if (kycStatus === "verified" || kycStatus === "approved") {
+            router.push("/(screens)/kyc-details");
+            return;
+        }
+
         router.push({
             pathname: "/(auth)/kyc",
             params: {

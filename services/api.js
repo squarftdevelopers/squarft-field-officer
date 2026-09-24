@@ -149,6 +149,18 @@ export const projectsAPI = {
 };
 
 export const leadsAPI = {
+  sendContactOtp: async (phone) => {
+    const { data } = await api.post('/auth/send-otp', {
+      phone: normalizePhone(phone),
+      purpose: 'owner_contact',
+      role: 'project_developer',
+    });
+    return data;
+  },
+  verifyContactOtp: async (otp_token, otp) => {
+    const { data } = await api.post('/auth/verify-otp', { otp_token, otp });
+    return data;
+  },
   getFormOptions: async () => {
     const { data } = await api.get('/api/v1/field-officer/leads/form-options');
     return data;
@@ -270,9 +282,15 @@ export const projectFormApi = {
       xhr.onload = () => {
         try {
           const data = JSON.parse(xhr.responseText);
-          resolve({ data });
+          if (xhr.status >= 200 && xhr.status < 300) resolve({ data });
+          else {
+            const error = new Error(data?.message || `Upload failed (${xhr.status})`);
+            error.response = { status: xhr.status, data };
+            reject(error);
+          }
         } catch {
-          resolve({ data: xhr.responseText });
+          if (xhr.status >= 200 && xhr.status < 300) resolve({ data: xhr.responseText });
+          else reject(new Error(xhr.responseText || `Upload failed (${xhr.status})`));
         }
       };
       xhr.onerror = () => reject(new Error('Network Error'));
@@ -284,6 +302,9 @@ export const projectFormApi = {
   // Step 6 — finalize & publish
   finalizeStep6: (projectId, payload) =>
     api.put(`/api/v1/project-panel/form/${projectId}/step6-finalize`, payload),
+
+  updateResumeStep: (projectId, step) =>
+    api.put(`/api/v1/project-panel/form/${projectId}/resume-step`, { step }),
 
   // Restore draft step data (variants + units)
   getStepData: (projectId) =>

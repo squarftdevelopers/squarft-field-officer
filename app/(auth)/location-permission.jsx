@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
@@ -26,6 +26,7 @@ import {
     detectAndAssignBranchThunk,
     assignBranchThunk,
     logout,
+    setBranch,
     setLocation,
     setKycState,
 } from "../../store/slices/authSlice";
@@ -37,6 +38,7 @@ const comingSoonIllustration = require("../../assets/images/coming-soon.jpg");
 
 export default function LocationPermissionScreen() {
     const dispatch = useDispatch();
+    const branchId = useSelector((state) => state.auth.branchId);
 
     // States: 'prompt' | 'detecting' | 'select_branch' | 'coming_soon' | 'gps_unavailable'
     const [viewState, setViewState] = useState("prompt");
@@ -46,6 +48,32 @@ export default function LocationPermissionScreen() {
     const [detectedCity, setDetectedCity] = useState(null);
     const [detectedAddress, setDetectedAddress] = useState(null);
     const [isAssigning, setIsAssigning] = useState(false);
+    const [checkingExistingBranch, setCheckingExistingBranch] = useState(true);
+
+    useEffect(() => {
+        if (branchId) router.replace("/(tabs)/home");
+    }, [branchId]);
+
+    useEffect(() => {
+        let active = true;
+        if (branchId) {
+            setCheckingExistingBranch(false);
+            return () => { active = false; };
+        }
+        profileAPI.getProfile()
+            .then((response) => {
+                if (!active) return;
+                const profile = response?.data?.profile;
+                const existingBranchId = profile?.branch_id || profile?.branch?.id;
+                if (existingBranchId) {
+                    dispatch(setBranch({ id: existingBranchId, name: profile?.branch?.name || '' }));
+                    router.replace("/(tabs)/home");
+                }
+            })
+            .catch(() => {})
+            .finally(() => { if (active) setCheckingExistingBranch(false); });
+        return () => { active = false; };
+    }, [branchId, dispatch]);
 
     /**
      * Sends coordinates to backend to detect matching branches.
@@ -205,6 +233,7 @@ export default function LocationPermissionScreen() {
 
     // Check if permission is already granted on mount
     useEffect(() => {
+        if (branchId || checkingExistingBranch) return undefined;
         let isMounted = true;
         (async () => {
             try {
@@ -220,7 +249,7 @@ export default function LocationPermissionScreen() {
         return () => {
             isMounted = false;
         };
-    }, [handleStartDetection]);
+    }, [branchId, checkingExistingBranch, handleStartDetection]);
 
     // Confirm the user-selected branch and continue to the dashboard
     const handleConfirmBranch = async () => {
@@ -264,6 +293,15 @@ export default function LocationPermissionScreen() {
     };
 
     const selectedBranch = nearbyBranches.find((b) => b.id === selectedBranchId) || nearbyBranches[0];
+
+    if (checkingExistingBranch) {
+        return (
+            <SafeAreaView className="flex-1 items-center justify-center bg-[#F8F9FE]">
+                <ActivityIndicator size="large" color="#4A43EC" />
+                <Text className="mt-3 text-sm font-lato text-gray-500">Checking branch assignment...</Text>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView className="flex-1 bg-[#F8F9FE]" edges={["top", "bottom"]}>

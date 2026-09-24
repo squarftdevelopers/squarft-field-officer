@@ -3,7 +3,6 @@ import { StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
-import * as Location from "expo-location";
 import { profileAPI, restoreAuthToken } from "../services/api";
 import { useDispatch } from "react-redux";
 import { setLoggedIn, setKycState, setBranch, setAuthChecked } from "../store/slices/authSlice";
@@ -25,23 +24,16 @@ export default function Index() {
                     const res = await profileAPI.getProfile();
                     if (res && res.success && res.data?.profile) {
                         const profile = res.data.profile;
+                        const existingBranchId = profile.branch_id || profile.branch?.id || null;
                         const kycStatus = profile.kyc_status || "missing";
                         dispatch(setKycState(kycStatus));
                         dispatch(setLoggedIn(true));
 
-                        if (profile.branch_id) {
-                            dispatch(setBranch({ id: profile.branch_id, name: '' }));
+                        if (existingBranchId) {
+                            dispatch(setBranch({ id: existingBranchId, name: profile.branch?.name || '' }));
                         }
 
-                        let hasLocationPermission = false;
-                        try {
-                            const perm = await Location.getForegroundPermissionsAsync();
-                            hasLocationPermission = perm.status === 'granted';
-                        } catch {
-                            hasLocationPermission = false;
-                        }
-
-                        if (!profile.branch_id || !hasLocationPermission) {
+                        if (!existingBranchId) {
                             routeTo = "/(auth)/location-permission";
                         } else {
                             routeTo = "/(tabs)/home";

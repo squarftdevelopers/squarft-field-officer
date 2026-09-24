@@ -376,6 +376,7 @@ function FollowUpForm({ project, onSave, submitting }) {
     const [followUpStatus, setFollowUpStatus] = useState(project.type === "Hot" ? "Hot" : "Warm");
     const [statusOpen, setStatusOpen] = useState(false);
     const [remarks, setRemarks] = useState("");
+    const [interested, setInterested] = useState(false);
     const [nextAction, setNextAction] = useState(followUpActions[0]);
     const [nextDate, setNextDate] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
@@ -467,6 +468,7 @@ function FollowUpForm({ project, onSave, submitting }) {
                 sitePhoto,
                 voiceNoteUri,
                 voiceNoteDuration,
+                interested,
             },
         });
     };
@@ -714,6 +716,10 @@ function FollowUpForm({ project, onSave, submitting }) {
                 </View>
             </TouchableOpacity>
 
+            <TouchableOpacity activeOpacity={0.8} onPress={() => setInterested((value) => !value)} className="mt-4 min-h-11 flex-row items-center rounded-[10px] border border-[#DDE2FF] bg-[#F8F9FF] px-3">
+                <Ionicons name={interested ? "checkbox" : "square-outline"} size={20} color="#4A43EC" />
+                <Text className="ml-2 text-[12px] font-lato-bold text-[#312E81]">Builder is interested</Text>
+            </TouchableOpacity>
             <TouchableOpacity activeOpacity={0.9} onPress={handleSave} disabled={submitting} className="mt-4 h-11 flex-row items-center justify-center rounded-[10px] bg-[#16A34A]">
                 {submitting ? (
                     <ActivityIndicator size="small" color="#fff" />
@@ -739,6 +745,7 @@ function MeetingForm({ project, onSave, submitting }) {
     const [location, setLocation] = useState(project.location);
     const [selectedAgenda, setSelectedAgenda] = useState([meetingAgenda[0]]);
     const [notes, setNotes] = useState("");
+    const [interested, setInterested] = useState(false);
     const [reminder, setReminder] = useState(reminderOptions[0]);
     const [reminderOpen, setReminderOpen] = useState(false);
 
@@ -780,6 +787,7 @@ function MeetingForm({ project, onSave, submitting }) {
                 notes,
                 reminder,
                 meetingStatus,
+                interested,
             },
         });
     };
@@ -789,6 +797,10 @@ function MeetingForm({ project, onSave, submitting }) {
             <View className="mb-3 h-1.5 w-10 self-center rounded-full bg-[#CBD5E1]" />
             <Text className="mb-3 text-[16px] font-lato-bold text-[#111827]">Schedule Meeting</Text>
             <ProjectContextCard project={project} />
+            <TouchableOpacity activeOpacity={0.8} onPress={() => setInterested((value) => !value)} className="mt-3 min-h-11 flex-row items-center rounded-[10px] border border-[#DDE2FF] bg-[#F8F9FF] px-3">
+                <Ionicons name={interested ? "checkbox" : "square-outline"} size={20} color="#4A43EC" />
+                <Text className="ml-2 text-[12px] font-lato-bold text-[#312E81]">Builder is interested</Text>
+            </TouchableOpacity>
 
             <FormLabel>Meeting Type</FormLabel>
             <View className="flex-row flex-wrap">
@@ -1350,6 +1362,10 @@ const normalizeApiLead = (d, journey = [], follow_ups = [], meetings = []) => {
         developerName: d.builder_name || d.developerName || "",
         contactPerson: d.contact_person || "",
         phoneNumber: d.contact_number || d.phoneNumber || "",
+        responsiblePerson: d.responsible_person_name || "",
+        responsiblePhoneNumber: d.responsible_person_contact || "",
+        developerId: d.developer_id || null,
+        responsibleUserId: d.responsible_user_id || null,
         city: d.city || "",
         location: d.location || d.area || "",
         area: d.area || "",
@@ -1530,6 +1546,7 @@ export default function ProjectDetail() {
                 next_action,
                 next_follow_up_at: meta.nextFollowUpAt,
                 remarks: followUp.note || undefined,
+                interested: Boolean(meta.interested),
             };
         }
 
@@ -1539,6 +1556,7 @@ export default function ProjectDetail() {
         form.append("follow_up_status",  follow_up_status);
         form.append("next_action",       next_action);
         form.append("next_follow_up_at", meta.nextFollowUpAt);
+        form.append("interested", String(Boolean(meta.interested)));
         if (followUp.note) form.append("remarks", followUp.note);
         if (voiceNoteFile) {
             form.append("voice_note_duration_ms", String(meta.voiceNoteDuration || 0));
@@ -1642,6 +1660,7 @@ export default function ProjectDetail() {
                     agenda: (meeting.meta.agenda || []).map((a) => agendaValueMap[a] || a),
                     notes_preparation: meeting.meta.notes || undefined,
                     reminder_minutes: reminderMap[meeting.meta.reminder] ?? 30,
+                    interested: Boolean(meeting.meta.interested),
                 };
                 const res = await leadsAPI.scheduleMeeting(projectId, payload);
                 const { meeting: saved, lead: updatedLead } = res.data || {};

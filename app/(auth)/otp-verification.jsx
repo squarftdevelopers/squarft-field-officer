@@ -1,5 +1,4 @@
 import { Text, View, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, Keyboard } from "react-native";
-import * as Location from "expo-location";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -73,15 +72,7 @@ export default function OtpVerification() {
                     dispatch(setBranch({ id: userObj.branch_id, name: '' }));
                 }
 
-                let hasLocationPermission = false;
-                try {
-                    const perm = await Location.getForegroundPermissionsAsync();
-                    hasLocationPermission = perm.status === 'granted';
-                } catch {
-                    hasLocationPermission = false;
-                }
-
-                if (!userObj?.branch_id || !hasLocationPermission) {
+                if (!userObj?.branch_id) {
                     router.replace('/(auth)/location-permission');
                     return;
                 }
@@ -98,7 +89,12 @@ export default function OtpVerification() {
                 const kycStatus = userObj?.kyc_status || 'missing';
                 dispatch(setKycState(kycStatus));
                 dispatch(setLoggedIn(true));
-                router.replace('/(auth)/location-permission');
+                if (userObj?.branch_id) {
+                    dispatch(setBranch({ id: userObj.branch_id, name: '' }));
+                    router.replace('/(tabs)/home');
+                } else {
+                    router.replace('/(auth)/location-permission');
+                }
             }
             dispatch(clearOtp());
         } catch (error) {
