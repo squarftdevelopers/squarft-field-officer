@@ -16,7 +16,7 @@ export default function Index() {
     useEffect(() => {
         const checkAuth = async () => {
             const startTime = Date.now();
-            let routeTo = "/(auth)/onboarding1";
+            let routeTo = "/(auth)/login";
 
             try {
                 const token = await restoreAuthToken();

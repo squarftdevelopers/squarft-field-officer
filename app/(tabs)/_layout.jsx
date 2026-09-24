@@ -60,7 +60,7 @@ export default function TabsLayout() {
     const androidBottomPadding = Math.max(insets.bottom, 8);
 
     if (authChecked && !isLoggedIn) {
-        return <Redirect href="/(auth)/onboarding1" />;
+        return <Redirect href="/(auth)/login" />;
     }
 
     return (
