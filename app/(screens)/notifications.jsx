@@ -1,8 +1,10 @@
-import { View, Text, Pressable, StatusBar, Platform, ScrollView, RefreshControl } from "react-native";
+import { View, Text, Pressable, StatusBar, Platform, ScrollView, RefreshControl, ActivityIndicator } from "react-native";
 import { useEffect, useState, useCallback } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
-import { notificationApi } from "../../services/notificationApi";
+import { useDispatch } from "react-redux";
+import { notificationApi, mapNotificationResponse } from "../../services/notificationApi";
+import { setNotifications as syncNotifications } from "../../store/slices/notificationSlice";
 
 const getIconConfig = (type) => {
     switch (type) {
@@ -39,29 +41,31 @@ function NotificationIcon({ type }) {
 }
 
 export default function Notifications() {
+    const dispatch = useDispatch();
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
     const [refreshing, setRefreshing] = useState(false);
 
     const loadNotifications = useCallback(async () => {
         try {
-            const res = await notificationApi.list();
-            const list = res.data || [];
-            const mapped = list.map((n) => ({
-                id: n.id,
-                title: n.title,
-                description: n.body,
-                watched: Boolean(n.is_read),
-                target: n.metadata?.route || null,
-                type: n.type || "default",
-                time: n.sent_at ? new Date(n.sent_at).toLocaleDateString() : "Recently",
-            }));
+            setLoadError("");
+            const [listResponse, countResponse] = await Promise.all([
+                notificationApi.list(),
+                notificationApi.getUnreadCount(),
+            ]);
+            const mapped = mapNotificationResponse(listResponse);
             setNotifications(mapped);
-            setUnreadCount(Number(res.unread_count || 0));
+            dispatch(syncNotifications(mapped));
+            setUnreadCount(Number(countResponse?.data?.unreadCount || 0));
         } catch (err) {
             console.warn("Failed to load notifications:", err.message);
+            setLoadError("Unable to load notifications. Please try again.");
+        } finally {
+            setLoading(false);
         }
-    }, []);
+    }, [dispatch]);
 
     useEffect(() => {
         loadNotifications();
@@ -76,7 +80,11 @@ export default function Notifications() {
     const handleMarkAllRead = async () => {
         try {
             await notificationApi.markAllRead();
-            setNotifications((prev) => prev.map((item) => ({ ...item, watched: true })));
+            setNotifications((prev) => {
+                const updated = prev.map((item) => ({ ...item, watched: true }));
+                dispatch(syncNotifications(updated));
+                return updated;
+            });
             setUnreadCount(0);
         } catch (err) {
             console.warn("Failed to mark all as read:", err.message);
@@ -88,7 +96,11 @@ export default function Notifications() {
             try {
                 await notificationApi.markRead(null, item.id);
                 setNotifications((prev) =>
-                    prev.map((n) => (n.id === item.id ? { ...n, watched: true } : n))
+                    {
+                        const updated = prev.map((n) => (n.id === item.id ? { ...n, watched: true } : n));
+                        dispatch(syncNotifications(updated));
+                        return updated;
+                    }
                 );
                 setUnreadCount((prev) => Math.max(0, prev - 1));
             } catch (err) {
@@ -126,7 +138,20 @@ export default function Notifications() {
                 </Pressable>
             </View>
 
-            {notifications.length === 0 ? (
+            {loading ? (
+                <View className="flex-1 items-center justify-center -mt-20">
+                    <ActivityIndicator size="large" color="#4A43EC" />
+                    <Text className="text-[12px] text-[#9CA3AF] font-lato mt-3">Loading notifications...</Text>
+                </View>
+            ) : loadError ? (
+                <View className="flex-1 items-center justify-center px-10 -mt-20">
+                    <Ionicons name="cloud-offline-outline" size={46} color="#9CA3AF" />
+                    <Text className="text-[14px] text-[#4B5563] font-lato-bold mt-4 text-center">{loadError}</Text>
+                    <Pressable onPress={loadNotifications} className="bg-[#4A43EC] rounded-xl px-6 py-3 mt-5">
+                        <Text className="text-white text-[12px] font-lato-bold">Try again</Text>
+                    </Pressable>
+                </View>
+            ) : notifications.length === 0 ? (
                 <View className="flex-1 items-center justify-center px-10 -mt-20">
                     <View className="w-28 h-28 rounded-full bg-[#F4F7FF] items-center justify-center">
                         <Ionicons name="mail-open-outline" size={42} color="#4A43EC" />

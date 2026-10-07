@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,20 +10,18 @@ export default function KycModal() {
     const insets = useSafeAreaInsets();
     const dispatch = useDispatch();
     const pathname = usePathname();
-    const sheetRef = useRef(null);
-    const { isLoggedIn, isKycCompleted, kycStatus, branchId } = useSelector((state) => state.auth);
+    const { authChecked, isLoggedIn, mobile } = useSelector((state) => state.auth);
     const [kyc, setKyc] = useState(null);
     const [checked, setChecked] = useState(false);
     const [loading, setLoading] = useState(false);
-    const status = String(kyc?.verification_status || kycStatus || 'missing').toLowerCase();
+    const status = String(kyc?.verification_status || 'missing').toLowerCase();
     const submitted = ['pending', 'submitted', 'under_review', 'in_review'].includes(status);
     const rejected = status === 'rejected';
-    const approved = ['approved', 'verified'].includes(status) || isKycCompleted;
-    const snapPoints = useMemo(() => ['92%'], []);
+    const approved = checked && ['approved', 'verified'].includes(status);
     const authRoute = pathname === '/' || pathname.includes('(auth)') || pathname.includes('onboarding')
         || pathname.includes('login') || pathname.includes('register') || pathname.includes('otp-verification')
         || pathname.includes('location-permission');
-    const visible = isLoggedIn && Boolean(branchId) && checked && !approved && !authRoute && !pathname.includes('kyc');
+    const visible = authChecked && isLoggedIn && !approved && !authRoute && !pathname.includes('kyc');
 
     const fetchKyc = useCallback(async () => {
         if (loading) return;
@@ -35,10 +32,12 @@ export default function KycModal() {
             setKyc(data);
             dispatch(setKycState(data.verification_status || 'missing'));
         } catch (error) {
-            if (error?.response?.status === 404) {
-                setKyc({ verification_status: 'missing' });
-                dispatch(setKycState('missing'));
-            } else console.log('[KycModal] getMyKyc error:', error?.response?.data || error.message);
+            // Fail closed: an unavailable KYC service must never unlock the app.
+            setKyc({ verification_status: 'missing' });
+            dispatch(setKycState('missing'));
+            if (error?.response?.status !== 404) {
+                console.log('[KycModal] getMyKyc error:', error?.response?.data || error.message);
+            }
         } finally {
             setChecked(true);
             setLoading(false);
@@ -46,38 +45,56 @@ export default function KycModal() {
     }, [dispatch, loading]);
 
     useEffect(() => {
-        if (isLoggedIn && branchId && !checked && !loading) fetchKyc();
-    }, [branchId, checked, fetchKyc, isLoggedIn, loading]);
+        setKyc(null);
+        setChecked(false);
+    }, [mobile]);
 
     useEffect(() => {
-        if (visible) {
-            const timer = setTimeout(() => sheetRef.current?.present(), 250);
-            return () => clearTimeout(timer);
-        }
-        sheetRef.current?.dismiss();
-    }, [status, visible]);
-
-    const backdrop = useCallback((props) => (
-        <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.5} pressBehavior="none" />
-    ), []);
+        if (authChecked && isLoggedIn && !authRoute && !pathname.includes('kyc') && !checked && !loading) fetchKyc();
+    }, [authChecked, authRoute, checked, fetchKyc, isLoggedIn, loading, pathname]);
 
     const handleAction = async () => {
         if (submitted) return fetchKyc();
-        sheetRef.current?.dismiss();
         router.push('/(auth)/kyc');
     };
 
     return (
-        <BottomSheetModal ref={sheetRef} index={0} snapPoints={snapPoints} backdropComponent={backdrop}
-            enablePanDownToClose={false} enableDismissOnClose={false} handleComponent={null}
-            backgroundStyle={styles.background} bottomInset={insets.bottom}>
-            <BottomSheetView style={styles.container}>
+        <Modal
+            visible={visible}
+            transparent
+            animationType="fade"
+            statusBarTranslucent
+            hardwareAccelerated
+            onRequestClose={() => {}}
+        >
+            <View
+                style={{
+                    flex: 1,
+                    justifyContent: 'flex-end',
+                    backgroundColor: 'rgba(15,23,42,0.58)',
+                }}
+            >
+            <View
+                style={[
+                    styles.container,
+                    {
+                        flex: 0,
+                        width: '100%',
+                        height: '82%',
+                        maxHeight: '82%',
+                        paddingBottom: Math.max(insets.bottom, 16) + 16,
+                        borderTopLeftRadius: 28,
+                        borderTopRightRadius: 28,
+                        overflow: 'hidden',
+                    },
+                ]}
+            >
                 <View style={styles.visual}>
                     <View style={[styles.headerBackground, rejected && styles.rejectedBackground]} />
                     <View style={styles.handle} />
                     <Image source={require('../assets/images/pana.png')} style={styles.illustration} resizeMode="contain" />
                 </View>
-                <View style={styles.copy}>
+                <View style={[styles.copy, { flex: 0, justifyContent: 'center', paddingTop: 30, paddingBottom: 30 }]}>
                     <Text style={[styles.title, rejected && styles.rejectedTitle]}>
                         {rejected ? 'KYC Rejected' : submitted ? 'KYC Submitted' : 'Please Complete Your KYC'}
                     </Text>
@@ -97,8 +114,9 @@ export default function KycModal() {
                         )}
                     </Pressable>
                 </View>
-            </BottomSheetView>
-        </BottomSheetModal>
+            </View>
+            </View>
+        </Modal>
     );
 }
 

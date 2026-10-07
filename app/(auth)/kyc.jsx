@@ -15,33 +15,14 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch } from 'react-redux';
-import { kycAPI, setAuthToken } from '../../services/api';
-import { setLoggedIn, setKycState } from '../../store/slices/authSlice';
+import { kycAPI } from '../../services/api';
+import { setKycState } from '../../store/slices/authSlice';
 
 const isApprovedStatus = (status) => ['verified', 'approved'].includes(String(status || '').toLowerCase());
 const isReviewStatus = (status) => String(status || '').toLowerCase() === 'under_review';
-
-const statusMeta = {
-  verified: {
-    icon: 'check-decagram-outline',
-    color: '#16A34A',
-    bg: '#DCFCE7',
-    title: 'KYC Approved',
-    message: 'Your KYC has been approved. You can continue using the field officer dashboard.',
-    action: 'Continue to Dashboard',
-  },
-  under_review: {
-    icon: 'clock-outline',
-    color: '#CA8A04',
-    bg: '#FEF9C3',
-    title: 'KYC Under Review',
-    message: 'Your documents have been submitted. App access will unlock after admin approval.',
-    action: 'Refresh Status',
-  },
-};
 
 const getFileName = (asset, fallbackName) => {
   if (asset?.fileName) return asset.fileName;
@@ -210,19 +191,13 @@ export default function KycScreen() {
       setStatus(submitted.data?.verification_status || 'under_review');
       dispatch(setKycState(submitted.data?.verification_status || 'under_review'));
       setRejectionReason('');
-      Alert.alert('KYC Submitted', 'Your KYC has been submitted for admin approval.');
+      router.replace('/(tabs)/home');
     } catch (error) {
       await loadKycStatus();
       Alert.alert('KYC Failed', error.response?.data?.message || error.message || 'Unable to submit KYC. Please try again.');
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleLogout = () => {
-    setAuthToken(null);
-    dispatch(setLoggedIn(false));
-    router.replace('/(auth)/login');
   };
 
   const handleBack = () => {
@@ -232,7 +207,6 @@ export default function KycScreen() {
 
   const currentStatus = String(status || '').toLowerCase();
   const showStatusOnly = isApprovedStatus(currentStatus) || isReviewStatus(currentStatus);
-  const meta = statusMeta[currentStatus] || statusMeta.under_review;
   const isRejected = currentStatus === 'rejected';
 
   if (fetchingKyc) {
@@ -245,33 +219,7 @@ export default function KycScreen() {
   }
 
   if (showStatusOnly) {
-    return (
-      <SafeAreaView style={styles.statusContainer}>
-        <StatusBar barStyle="dark-content" />
-        <View style={[styles.statusIcon, { backgroundColor: meta.bg }]}>
-          <MaterialCommunityIcons name={meta.icon} size={54} color={meta.color} />
-        </View>
-        <Text style={styles.statusTitle}>{meta.title}</Text>
-        <Text style={styles.statusMessage}>{meta.message}</Text>
-        <Pressable
-          style={[styles.primaryButton, { backgroundColor: meta.color }]}
-          onPress={() => {
-            if (isApprovedStatus(currentStatus)) {
-              dispatch(setLoggedIn(true));
-              dispatch(setKycState('verified'));
-              router.replace('/(tabs)/home');
-            } else {
-              loadKycStatus();
-            }
-          }}
-        >
-          {fetchingKyc ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>{meta.action}</Text>}
-        </Pressable>
-        <Pressable style={styles.secondaryButton} onPress={handleLogout}>
-          <Text style={styles.secondaryButtonText}>Log Out</Text>
-        </Pressable>
-      </SafeAreaView>
-    );
+    return <Redirect href="/(tabs)/home" />;
   }
 
   return (

@@ -984,7 +984,26 @@ export default function AddProject() {
 
             // If draft already created (user went back), skip re-creating
             if (projectId) {
-                await finishStep(2);
+                try {
+                    setIsSubmitting(true);
+                    await projectFormApi.updateBasicDetails(projectId, {
+                        name: step1.projectName,
+                        location: step1.location,
+                        city: step1.city,
+                        state: step1.state,
+                        pincode: step1.pincode,
+                        sales_officer_name: step1.salesOfficerName,
+                        sales_officer_contact: step1.salesOfficerContact,
+                        responsible_person_name: step1.responsiblePersonName,
+                        responsible_person_contact: step1.responsiblePersonContact,
+                    });
+                    await finishStep(2);
+                } catch (error) {
+                    const msg = error.response?.data?.message || 'Failed to save basic details. Please try again.';
+                    setStep1Errors({ api: msg });
+                } finally {
+                    setIsSubmitting(false);
+                }
                 return;
             }
 
@@ -2073,17 +2092,18 @@ function Step1({ errors = {}, setErrors }) {
             {/* Responsible Person Section */}
             <View>
                 <Text className="text-xs font-lato-bold text-black mb-1.5">Responsible person name</Text>
-                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 h-12 justify-center">
+                <Pressable onPress={() => respNameRef.current?.focus()} className="bg-white border border-gray-200 rounded-xl px-4 h-12 justify-center">
                     <TextInput
                         ref={respNameRef}
                         className="text-[13px] text-gray-800 font-lato-medium"
                         placeholder="Responsible person from acquisition"
                         placeholderTextColor="#9CA3AF"
                         value={step1.responsiblePersonName}
-                        editable={false}
+                        onChangeText={(v) => updateField('responsiblePersonName', v)}
+                        autoCapitalize="words"
                         style={{ paddingVertical: 0, textAlignVertical: 'center', includeFontPadding: false }}
                     />
-                </View>
+                </Pressable>
                 {errors.responsiblePersonName && (
                     <Text className="text-[11px] text-red-500 mt-1">{errors.responsiblePersonName}</Text>
                 )}
@@ -2091,7 +2111,7 @@ function Step1({ errors = {}, setErrors }) {
 
             <View>
                 <Text className="text-xs font-lato-bold text-black mb-1.5">Contact No.</Text>
-                <View className="flex-row bg-gray-50 border border-gray-200 rounded-xl px-4 h-12 items-center">
+                <Pressable onPress={() => respContactRef.current?.focus()} className="flex-row bg-white border border-gray-200 rounded-xl px-4 h-12 items-center">
                     <TextInput
                         ref={respContactRef}
                         className="flex-1 text-[13px] text-gray-800 font-lato-medium"
@@ -2099,10 +2119,11 @@ function Step1({ errors = {}, setErrors }) {
                         placeholderTextColor="#9CA3AF"
                         keyboardType="phone-pad"
                         value={step1.responsiblePersonContact}
-                        editable={false}
+                        onChangeText={(v) => updateField('responsiblePersonContact', v.replace(/\D/g, '').slice(0, 10))}
+                        maxLength={10}
                         style={{ paddingVertical: 0, textAlignVertical: 'center', includeFontPadding: false }}
                     />
-                </View>
+                </Pressable>
                 {errors.responsiblePersonContact && (
                     <Text className="text-[11px] text-red-500 mt-1">{errors.responsiblePersonContact}</Text>
                 )}

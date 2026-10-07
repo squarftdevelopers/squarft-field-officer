@@ -1,10 +1,9 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { initialNotifications } from '../../data/notifications';
 
 const notificationSlice = createSlice({
     name: 'notifications',
     initialState: {
-        list: initialNotifications,
+        list: [],
     },
     reducers: {
         markAsWatched: (state, action) => {
@@ -27,11 +26,14 @@ const notificationSlice = createSlice({
                 ...action.payload,
             });
         },
+        setNotifications: (state, action) => {
+            state.list = Array.isArray(action.payload) ? action.payload : [];
+        },
         clearNotifications: (state) => {
             state.list = [];
         },
     },
 });
 
-export const { markAsWatched, markAllAsWatched, addNotification, clearNotifications } = notificationSlice.actions;
+export const { markAsWatched, markAllAsWatched, addNotification, setNotifications, clearNotifications } = notificationSlice.actions;
 export default notificationSlice.reducer;

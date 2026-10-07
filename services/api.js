@@ -1,5 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { registerForPushNotificationsAsync } from './pushNotifications';
 
 let authToken = null;
 export const setAuthToken = (token) => {
@@ -63,6 +64,7 @@ export const authAPI = {
     const { data } = await api.post('/api/v1/field-officer/auth/login', { verified_token });
     if (data.token) {
       setAuthToken(data.token);
+      registerForPushNotificationsAsync(data.token);
     }
     return data;
   },
@@ -77,6 +79,7 @@ export const authAPI = {
     });
     if (data.token) {
       setAuthToken(data.token);
+      registerForPushNotificationsAsync(data.token);
     }
     return data;
   },
@@ -102,6 +105,15 @@ export const authAPI = {
 export const dashboardAPI = {
   getDashboard: async () => {
     const { data } = await api.get('/api/v1/field-officer/dashboard');
+    return data;
+  },
+};
+
+export const appActivityAPI = {
+  heartbeat: async ({ latitude, longitude } = {}) => {
+    const { data } = await api.post('/api/v1/app-activity/heartbeat', {
+      ...(latitude !== undefined && longitude !== undefined ? { latitude, longitude } : {}),
+    });
     return data;
   },
 };
@@ -243,6 +255,9 @@ export const projectFormApi = {
   // Step 1 — create draft project
   createDraft: (payload) => api.post('/api/v1/project-panel/form/draft', payload),
 
+  updateBasicDetails: (projectId, payload) =>
+    api.put(`/api/v1/project-panel/form/${projectId}/basic-details`, payload),
+
   // Step 2 — configure property types
   configurePropertyTypes: (projectId, payload) =>
     api.put(`/api/v1/project-panel/form/${projectId}/property-types`, payload),
@@ -320,8 +335,8 @@ export const projectFormApi = {
 };
 
 export const projectMembersAPI = {
-  getAssignableUsers: (role, q) =>
-    api.get('/api/v1/project-panel/projects/assignable-users', { params: { role, q } }),
+  getAssignableUsers: (role, q, limit) =>
+    api.get('/api/v1/project-panel/projects/assignable-users', { params: { role, q, limit } }),
   getMembers: (projectId) =>
     api.get(`/api/v1/project-panel/projects/${projectId}/members`),
   addMember: (projectId, userId) =>

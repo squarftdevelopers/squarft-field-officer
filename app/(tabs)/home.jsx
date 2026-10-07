@@ -21,6 +21,8 @@ import ProjectLeadFormSheet from "../../components/ProjectLeadFormSheet";
 import { fetchDashboard } from "../../store/slices/dashboardSlice";
 import { fetchOfficerProfile } from "../../store/slices/profileSlice";
 import { leadsAPI } from "../../services/api";
+import { mapNotificationResponse, notificationApi } from "../../services/notificationApi";
+import { setNotifications } from "../../store/slices/notificationSlice";
 import {
     markProjectContacted,
     selectAllProjectFollowUps,
@@ -236,7 +238,12 @@ export default function Home() {
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         try {
-            await Promise.all([dispatch(fetchDashboard()), dispatch(fetchOfficerProfile())]);
+            const [, , notificationResponse] = await Promise.all([
+                dispatch(fetchDashboard()),
+                dispatch(fetchOfficerProfile()),
+                notificationApi.list(),
+            ]);
+            dispatch(setNotifications(mapNotificationResponse(notificationResponse)));
         } catch (err) {
             console.error("Refresh dashboard error:", err);
         } finally {
@@ -249,6 +256,9 @@ export default function Home() {
         useCallback(() => {
             dispatch(fetchDashboard());
             dispatch(fetchOfficerProfile());
+            notificationApi.list()
+                .then((response) => dispatch(setNotifications(mapNotificationResponse(response))))
+                .catch((error) => console.warn("Failed to refresh notification badge:", error.message));
         }, [dispatch])
     );
 

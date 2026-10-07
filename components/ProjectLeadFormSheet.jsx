@@ -369,6 +369,7 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
     const [searchModalVisible, setSearchModalVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState([]);
+    const [developerAccounts, setDeveloperAccounts] = useState([]);
     const [searching, setSearching] = useState(false);
     const [otpState, setOtpState] = useState({ builder: {}, responsible: {} });
 
@@ -399,18 +400,31 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
         }
     };
 
-    const handleSearchDeveloper = async (text) => {
+    const handleSearchDeveloper = (text) => {
         setSearchQuery(text);
-        if (!text.trim()) {
-            setSearchResults([]);
-            return;
-        }
+        const query = text.trim().toLowerCase();
+        if (!query) return setSearchResults(developerAccounts);
+
+        setSearchResults(developerAccounts.filter((user) => (
+            [user.first_name, user.last_name, user.company_name, user.email, user.phone]
+                .filter(Boolean)
+                .some((value) => String(value).toLowerCase().includes(query))
+        )));
+    };
+
+    const openDeveloperSelector = async () => {
+        setSearchModalVisible(true);
+        setSearchQuery("");
+        setSearching(true);
         try {
-            setSearching(true);
-            const res = await projectMembersAPI.getAssignableUsers("project_developer", text);
-            setSearchResults(res.data?.data || []);
+            const res = await projectMembersAPI.getAssignableUsers("project_developer", "", "all");
+            const accounts = res.data?.data || [];
+            setDeveloperAccounts(accounts);
+            setSearchResults(accounts);
         } catch (err) {
-            console.log("Error searching users:", err?.response?.data || err.message);
+            console.log("Error loading developer accounts:", err?.response?.data || err.message);
+            setDeveloperAccounts([]);
+            setSearchResults([]);
         } finally {
             setSearching(false);
         }
@@ -1005,7 +1019,7 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
                                 <View className="flex-row justify-between items-center mb-1.5">
                                     <Text className="text-xs font-lato-bold text-black">Contact Person</Text>
                                     <TouchableOpacity
-                                        onPress={() => setSearchModalVisible(true)}
+                                        onPress={openDeveloperSelector}
                                         activeOpacity={0.7}
                                         className="flex-row items-center"
                                     >
@@ -1639,7 +1653,7 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
                             onPress={() => {
                                 setSearchModalVisible(false);
                                 setSearchQuery("");
-                                setSearchResults([]);
+                                setSearchResults(developerAccounts);
                             }}
                             className="p-1"
                         >
@@ -1665,6 +1679,11 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
                                 </TouchableOpacity>
                             ) : null}
                         </View>
+                        {!searching && (
+                            <Text className="mt-2 text-[10px] font-lato text-[#64748B]">
+                                {developerAccounts.length} active developer account{developerAccounts.length === 1 ? "" : "s"}
+                            </Text>
+                        )}
                     </View>
 
                     <ScrollView
@@ -1676,13 +1695,11 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
                             <View className="py-8 items-center">
                                 <ActivityIndicator size="small" color="#4A43EC" />
                             </View>
-                        ) : searchQuery && searchResults.length === 0 ? (
+                        ) : searchResults.length === 0 ? (
                             <View className="py-8 items-center">
-                                <Text className="text-[12px] text-[#64748B]">No project developers found</Text>
-                            </View>
-                        ) : !searchQuery ? (
-                            <View className="py-8 items-center">
-                                <Text className="text-[12px] text-[#94A3B8]">Type to search for active project developers</Text>
+                                <Text className="text-[12px] text-[#64748B]">
+                                    {searchQuery ? "No matching project developers found" : "No active project developers found"}
+                                </Text>
                             </View>
                         ) : (
                             searchResults.map((user) => (

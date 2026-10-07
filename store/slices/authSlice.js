@@ -94,6 +94,8 @@ const authSlice = createSlice({
             state.password = '';
             state.isLoggedIn = false;
             state.authChecked = true;
+            state.isKycCompleted = false;
+            state.kycStatus = 'missing';
         },
     },
     extraReducers: (builder) => {

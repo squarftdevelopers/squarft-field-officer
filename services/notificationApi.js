@@ -55,3 +55,33 @@ export const notificationApi = {
       body: JSON.stringify(payload),
     }),
 };
+
+const notificationTypeByEvent = (eventKey = '') => {
+  if (eventKey.includes('MEETING') || eventKey.includes('FOLLOW_UP')) return 'visit';
+  if (eventKey.includes('PROJECT') || eventKey.includes('ONBOARDING')) return 'inventory';
+  if (eventKey.includes('KYC') || eventKey.includes('APPROVED')) return 'success';
+  if (eventKey.includes('REJECTED') || eventKey.includes('FAILED')) return 'error';
+  return 'default';
+};
+
+export const mapNotificationResponse = (response) => {
+  const records = response?.data?.notifications;
+  if (!Array.isArray(records)) return [];
+
+  return records.map((notification) => ({
+    id: notification.id,
+    title: notification.title,
+    description: notification.body,
+    watched: String(notification.status).toUpperCase() === 'READ',
+    target: notification.route || null,
+    type: notificationTypeByEvent(notification.eventKey),
+    time: notification.createdAt
+      ? new Date(notification.createdAt).toLocaleString([], {
+          day: 'numeric',
+          month: 'short',
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      : 'Recently',
+  }));
+};
