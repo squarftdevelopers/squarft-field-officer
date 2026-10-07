@@ -73,13 +73,16 @@ function FieldOfficerLocationReporter() {
             }
         };
 
-        const start = () => {
-            reportLocation();
-            timer = setInterval(reportLocation, 60_000);
-        };
         const stop = () => {
             if (timer) clearInterval(timer);
             timer = null;
+        };
+        const start = () => {
+            // AppState can emit repeated `active` events. Keep exactly one
+            // foreground location timer running at a time.
+            stop();
+            reportLocation();
+            timer = setInterval(reportLocation, 60_000);
         };
 
         start();
