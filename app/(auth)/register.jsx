@@ -5,11 +5,11 @@ import {
     TouchableOpacity,
     Image,
     Alert,
-    ScrollView,
     ActivityIndicator,
-    KeyboardAvoidingView,
     Platform,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Link, router } from "expo-router";
 import { useState } from "react";
@@ -64,30 +64,35 @@ export default function Register() {
     };
 
     return (
-        <View className="flex-1">
+        <SafeAreaView className="flex-1 bg-white" edges={["bottom"]}>
             <StatusBar style="light" />
-
-            <View className="bg-[#4A43EC] pt-16 pb-10 px-7">
-                <View style={{ width: 60, height: 60, overflow: 'hidden' }} className="mb-5 mt-4" >
-                    <Image source={logo} style={{ width: 110, height: 110, margin: -30 }} resizeMode="contain" />
-                </View>
-                <Text className="text-white text-[36px] font-bold mb-1">Register</Text>
-                <Link href="/login">
-                    <Text className="text-white text-[14px] underline ">Log in</Text>
-                </Link>
-            </View>
-
-            <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
+            <KeyboardAwareScrollView
                 className="flex-1 bg-white"
+                contentContainerStyle={{
+                    flexGrow: 1,
+                    paddingBottom: Platform.OS === "android" ? 40 : 24,
+                }}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+                showsVerticalScrollIndicator={false}
+                enableOnAndroid
+                enableAutomaticScroll
+                extraScrollHeight={Platform.OS === "android" ? 24 : 20}
+                extraHeight={Platform.OS === "android" ? 120 : 75}
+                keyboardOpeningTime={Platform.OS === "android" ? 0 : 250}
+                enableResetScrollToCoords={false}
             >
-                <ScrollView
-                    className="flex-1"
-                    contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 32 }}
-                    keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="on-drag"
-                    showsVerticalScrollIndicator={false}
-                >
+                <View className="bg-[#4A43EC] px-7 pb-10 pt-16">
+                    <View style={{ width: 60, height: 60, overflow: 'hidden' }} className="mb-5 mt-4" >
+                        <Image source={logo} style={{ width: 110, height: 110, margin: -30 }} resizeMode="contain" />
+                    </View>
+                    <Text className="text-white text-[36px] font-bold mb-1">Register</Text>
+                    <Link href="/login">
+                        <Text className="text-white text-[14px] underline ">Log in</Text>
+                    </Link>
+                </View>
+
+                <View className="flex-1 bg-white px-6 pb-8 pt-8">
 
                 <Text className="text-gray-500 text-[13px] mb-1.5">First Name</Text>
                 <View className="border border-gray-200 rounded-xl px-4 py-2 mb-5">
@@ -160,8 +165,8 @@ export default function Register() {
                     </Text>
                 </View>
 
-                </ScrollView>
-            </KeyboardAvoidingView>
-        </View>
+                </View>
+            </KeyboardAwareScrollView>
+        </SafeAreaView>
     );
 }

@@ -127,7 +127,7 @@ export default function KycModal() {
                                 : 'Complete your KYC to continue using the field officer dashboard.'}
                     </Text>
                 </View>
-                <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+                <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 4) }]}>
                     <Pressable style={[styles.button, rejected && styles.rejectedButton, loading && styles.disabled]}
                         onPress={handleAction} disabled={loading} android_ripple={{ color: 'rgba(255,255,255,0.3)' }}>
                         {loading ? <ActivityIndicator size="small" color="#FFFFFF" /> : (
@@ -161,6 +161,6 @@ const styles = StyleSheet.create({
     rejectedButton: { backgroundColor: '#DC2626', shadowColor: '#DC2626' },
     disabled: { opacity: 0.85 },
     buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', fontFamily: 'Lato-Bold' },
-    logoutButton: { alignSelf: 'center', marginTop: 3, paddingHorizontal: 12, paddingVertical: 6 },
+    logoutButton: { alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 3 },
     logoutText: { color: '#DC2626', fontSize: 12, fontWeight: '600', fontFamily: 'Lato-Bold' },
 });
