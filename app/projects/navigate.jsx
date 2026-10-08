@@ -10,7 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "../../components/MapView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;

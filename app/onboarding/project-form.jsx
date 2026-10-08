@@ -48,7 +48,7 @@ import { projectFormApi, leadsAPI } from "../../services/api";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { PROVIDER_GOOGLE } from "../../components/MapView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");

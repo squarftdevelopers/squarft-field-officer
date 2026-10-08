@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { View, Text, TextInput, TouchableOpacity, Platform, Modal, ActivityIndicator, Alert, Keyboard, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { PROVIDER_GOOGLE } from "./MapView";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import Constants from "expo-constants";
 
@@ -169,6 +169,7 @@ export default function LocationMapPicker({ visible, initialAddress, onClose, on
     const [address, setAddress] = useState(null);
     const [loading, setLoading] = useState(false);
     const [locating, setLocating] = useState(false);
+    const [confirming, setConfirming] = useState(false);
     const [mapReady, setMapReady] = useState(false);
     const [mode, setMode] = useState("current"); // "current" | "custom"
     const [searchQuery, setSearchQuery] = useState("");
@@ -179,6 +180,7 @@ export default function LocationMapPicker({ visible, initialAddress, onClose, on
     const resolveAddress = useCallback(async (nextRegion) => {
         const requestId = ++geocodeRequestRef.current;
         setLoading(true);
+        setAddress(null);
         try {
             const result = await fetchAddressFromCoordinates(nextRegion.latitude, nextRegion.longitude);
             if (mountedRef.current && requestId === geocodeRequestRef.current) setAddress(result);
@@ -220,6 +222,7 @@ export default function LocationMapPicker({ visible, initialAddress, onClose, on
         setSearchResults([]);
         setShowResults(false);
         searchSessionTokenRef.current = null;
+        setConfirming(false);
         setLocating(true);
 
         (async () => {
@@ -307,11 +310,51 @@ export default function LocationMapPicker({ visible, initialAddress, onClose, on
         }
     }, []);
 
-    const confirmSelection = () => {
-        onConfirm({ ...address, latitude: region.latitude, longitude: region.longitude });
+    const confirmSelection = async () => {
+        if (!mapReady || locating || confirming) return;
+
+        const selectedRegion = { ...region };
+        setConfirming(true);
+        try {
+            // Resolve the exact pin at confirmation time so a slow map-idle
+            // lookup cannot disable the action or save an address from an old pin.
+            const resolvedAddress = await fetchAddressFromCoordinates(
+                selectedRegion.latitude,
+                selectedRegion.longitude,
+            );
+            if (!mountedRef.current) return;
+
+            const fallbackLocation = initialAddress?.location?.trim()
+                || `${selectedRegion.latitude.toFixed(6)}, ${selectedRegion.longitude.toFixed(6)}`;
+
+            onConfirm({
+                ...(resolvedAddress || {}),
+                location: resolvedAddress?.location || fallbackLocation,
+                city: resolvedAddress?.city || initialAddress?.city || "",
+                state: resolvedAddress?.state || initialAddress?.state || "",
+                pincode: resolvedAddress?.pincode || initialAddress?.pincode || "",
+                latitude: selectedRegion.latitude,
+                longitude: selectedRegion.longitude,
+            });
+        } catch (error) {
+            console.log('[MAP PICKER] Confirm address lookup failed:', error);
+            if (mountedRef.current) {
+                onConfirm({
+                    location: initialAddress?.location?.trim()
+                        || `${selectedRegion.latitude.toFixed(6)}, ${selectedRegion.longitude.toFixed(6)}`,
+                    city: initialAddress?.city || "",
+                    state: initialAddress?.state || "",
+                    pincode: initialAddress?.pincode || "",
+                    latitude: selectedRegion.latitude,
+                    longitude: selectedRegion.longitude,
+                });
+            }
+        } finally {
+            if (mountedRef.current) setConfirming(false);
+        }
     };
 
-    const confirmDisabled = !mapReady || loading || !address?.location;
+    const confirmDisabled = !mapReady || locating || confirming;
 
     return (
         <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
@@ -423,7 +466,9 @@ export default function LocationMapPicker({ visible, initialAddress, onClose, on
                     <View className="min-h-14 mt-2 flex-row items-center">
                         {loading ? <ActivityIndicator color="#4A43EC" /> : <Ionicons name="location-outline" size={21} color="#4A43EC" />}
                         <Text className="flex-1 ml-3 text-[13px] leading-5 text-gray-700 font-lato-medium">
-                            {loading ? 'Finding address…' : address?.location || 'Move the map to pinpoint an address'}
+                            {loading
+                                ? 'Finding address…'
+                                : address?.location || 'Address unavailable — the pinned coordinates can still be added'}
                         </Text>
                     </View>
 
@@ -432,7 +477,14 @@ export default function LocationMapPicker({ visible, initialAddress, onClose, on
                         onPress={confirmSelection}
                         className={`mt-3 rounded-2xl py-4 items-center ${confirmDisabled ? 'bg-indigo-300' : 'bg-[#4A43EC]'}`}
                     >
-                        <Text className="text-white text-[15px] font-lato-bold">{confirmLabel}</Text>
+                        {confirming ? (
+                            <View className="flex-row items-center">
+                                <ActivityIndicator size="small" color="#FFFFFF" />
+                                <Text className="ml-2 text-white text-[15px] font-lato-bold">Adding address…</Text>
+                            </View>
+                        ) : (
+                            <Text className="text-white text-[15px] font-lato-bold">{confirmLabel}</Text>
+                        )}
                     </TouchableOpacity>
 
                     {mode === "custom" ? (

@@ -109,15 +109,6 @@ export const dashboardAPI = {
   },
 };
 
-export const appActivityAPI = {
-  heartbeat: async ({ latitude, longitude } = {}) => {
-    const { data } = await api.post('/api/v1/app-activity/heartbeat', {
-      ...(latitude !== undefined && longitude !== undefined ? { latitude, longitude } : {}),
-    });
-    return data;
-  },
-};
-
 export const profileAPI = {
   getProfile: async () => {
     const { data } = await api.get('/api/v1/field-officer/profile');

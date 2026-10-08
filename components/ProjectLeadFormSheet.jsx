@@ -365,6 +365,7 @@ function PriorityChip({ label, active, onPress }) {
 export default function ProjectLeadFormSheet({ visible, translateY, screenHeight, onClose }) {
     const dispatch = useDispatch();
     const [currentStep, setCurrentStep] = useState(0);
+    const [stepError, setStepError] = useState("");
     const [saving, setSaving] = useState(false);
     const [searchModalVisible, setSearchModalVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -394,6 +395,7 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
             setOtpState((s) => ({ ...s, [kind]: { ...s[kind], loading: true } }));
             const result = await leadsAPI.verifyContactOtp(state.otpToken, state.code);
             setOtpState((s) => ({ ...s, [kind]: { ...s[kind], verifiedToken: result.verified_token, loading: false } }));
+            setStepError("");
         } catch (error) {
             setOtpState((s) => ({ ...s, [kind]: { ...s[kind], loading: false } }));
             Alert.alert("Verification failed", error?.response?.data?.message || "The OTP is invalid or expired.");
@@ -431,6 +433,7 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
     };
 
     const handleSelectDeveloper = (user) => {
+        setStepError("");
         setForm((prev) => ({
             ...prev,
             contactPerson: `${user.first_name} ${user.last_name || ""}`.trim(),
@@ -487,6 +490,7 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
 
     const handlePhoneChange = async (val) => {
         const normalized = val.replace(/\D/g, "").slice(-10);
+        setStepError("");
         setForm((current) => ({ ...current, mobile: normalized, existingDeveloperId: null }));
         setOtpState((s) => ({ ...s, builder: {} }));
         const digits = normalized;
@@ -503,6 +507,7 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
     };
 
     const setField = (field) => (value) => {
+        setStepError("");
         setForm((current) => ({ ...current, [field]: value }));
     };
 
@@ -595,55 +600,79 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
                 subType,
             },
         ]);
+        setStepError("");
         setProjectType("");
         setSubType("");
     };
 
+    const getStepValidationError = (step) => {
+        if (step === 0) {
+            const builderMobile = form.mobile.replace(/\D/g, "").slice(-10);
+            const responsibleMobile = form.responsibleMobile.replace(/\D/g, "").slice(-10);
+
+            if (!form.projectName.trim()) return "Enter the project name before continuing.";
+            if (!form.builderName.trim()) return "Enter the builder or developer name before continuing.";
+            if (builderMobile.length !== 10) return "Enter a valid 10-digit contact person mobile number.";
+            if (!form.existingDeveloperId && !otpState.builder.verifiedToken) {
+                return "Verify the contact person's mobile number before continuing.";
+            }
+            if (!form.responsiblePerson.trim()) return "Enter the responsible person's name before continuing.";
+            if (responsibleMobile.length !== 10) return "Enter a valid 10-digit responsible person mobile number.";
+            if (!otpState.responsible.verifiedToken) {
+                return "Verify the responsible person's mobile number before continuing.";
+            }
+            if (builderMobile === responsibleMobile) {
+                return "The contact person and responsible person must use different mobile numbers.";
+            }
+            if (selectedTypes.length === 0) return "Add at least one property type before continuing.";
+        }
+
+        return "";
+    };
+
     const nextStep = () => {
+        const validationError = getStepValidationError(currentStep);
+        if (validationError) {
+            setStepError(validationError);
+            scrollRef.current?.scrollToPosition?.(0, 0, true);
+            scrollRef.current?.scrollTo?.({ y: 0, animated: true });
+            return;
+        }
+
+        setStepError("");
         if (currentStep < steps.length - 1) {
-            setCurrentStep(currentStep + 1);
+            setCurrentStep((step) => step + 1);
         }
     };
 
     const prevStep = () => {
+        setStepError("");
         if (currentStep > 0) {
-            setCurrentStep(currentStep - 1);
+            setCurrentStep((step) => step - 1);
         }
     };
 
     const handleClose = () => {
         setCurrentStep(0);
+        setStepError("");
         setOtpState({ builder: {}, responsible: {} });
         onClose();
     };
 
     const handleSave = async () => {
+        for (let step = 0; step < steps.length; step += 1) {
+            const validationError = getStepValidationError(step);
+            if (validationError) {
+                setCurrentStep(step);
+                setStepError(validationError);
+                return;
+            }
+        }
+
         const now = new Date();
         const projectName = form.projectName.trim();
         const developerName = form.builderName.trim();
         const phoneNumber = form.mobile.trim();
-
-        if (!projectName || !developerName || !phoneNumber) {
-            Alert.alert("Missing details", "Project name, builder name, and mobile number are required.");
-            return;
-        }
-        if (!form.existingDeveloperId && !otpState.builder.verifiedToken) {
-            Alert.alert("Verification required", "Verify the builder's mobile number.");
-            return;
-        }
-        if (!form.responsiblePerson.trim() || !form.responsibleMobile.trim() || !otpState.responsible.verifiedToken) {
-            Alert.alert("Verification required", "Add and verify the responsible person's name and mobile number.");
-            return;
-        }
-        if (form.mobile.replace(/\D/g, "").slice(-10) === form.responsibleMobile.replace(/\D/g, "").slice(-10)) {
-            Alert.alert("Different numbers required", "Builder and responsible person must use different mobile numbers.");
-            return;
-        }
-
-        if (selectedTypes.length === 0) {
-            Alert.alert("Missing property type", "Please add at least one property type configuration.");
-            return;
-        }
 
         // Use pre-computed ISO string set during time selection
         const scheduled_time = form.followUpISO || null;
@@ -992,6 +1021,15 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
                         nestedScrollEnabled={Platform.OS === "android"}
                         scrollEnabled
                     >
+                    {stepError ? (
+                        <View className="mb-4 flex-row items-start rounded-xl border border-red-200 bg-red-50 px-3 py-3">
+                            <Ionicons name="alert-circle" size={18} color="#DC2626" style={{ marginTop: 1 }} />
+                            <Text className="ml-2 flex-1 text-[12px] leading-5 text-red-700 font-lato-bold">
+                                {stepError}
+                            </Text>
+                        </View>
+                    ) : null}
+
                     {/* Step 1: Basic Project Info */}
                     {currentStep === 0 && (
                         <View className="gap-6">
@@ -1183,7 +1221,7 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
                                 </View>
                             )}
 
-                            <Text className="text-xs font-lato-bold text-black">Property Category</Text>
+                            <Text className="text-xs font-lato-bold text-black">Property Category *</Text>
                             <View className="flex-row justify-between">
                                 {mainTypes.map((item) => (
                                     <CategoryImageCard
@@ -1195,7 +1233,7 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
                                 ))}
                             </View>
 
-                            <Text className="text-sm font-lato-bold text-black">Property Type</Text>
+                            <Text className="text-sm font-lato-bold text-black">Property Type *</Text>
                             <ScrollView
                                 horizontal
                                 showsHorizontalScrollIndicator={false}

@@ -2,12 +2,11 @@ import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
-import * as Location from "expo-location";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { Provider } from 'react-redux';
-import { Alert, AppState, BackHandler, Platform } from "react-native";
+import { Alert, BackHandler, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "../global.css";
 import { store } from '../store/store';
@@ -20,7 +19,7 @@ import {
     Lato_900Black,
 } from "@expo-google-fonts/lato";
 
-import { appActivityAPI, restoreAuthToken } from "../services/api";
+import { restoreAuthToken } from "../services/api";
 import { registerForPushNotificationsAsync } from "../services/pushNotifications";
 
 SplashScreen.preventAutoHideAsync();
@@ -48,54 +47,6 @@ function AndroidExitGuard() {
         return () => subscription.remove();
     }, [pathname, router]);
 
-    return null;
-}
-
-function FieldOfficerLocationReporter() {
-    useEffect(() => {
-        let timer = null;
-        let mounted = true;
-
-        const reportLocation = async () => {
-            try {
-                const permission = await Location.requestForegroundPermissionsAsync();
-                if (!mounted || permission.status !== 'granted') return;
-                const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-                if (!mounted) return;
-                await appActivityAPI.heartbeat({
-                    latitude: current.coords.latitude,
-                    longitude: current.coords.longitude,
-                });
-            } catch (error) {
-                // Location is optional: do not interrupt the Field Officer app
-                // if GPS is disabled, permission is denied, or the network is unavailable.
-                console.warn('Unable to report foreground location:', error?.message || error);
-            }
-        };
-
-        const stop = () => {
-            if (timer) clearInterval(timer);
-            timer = null;
-        };
-        const start = () => {
-            // AppState can emit repeated `active` events. Keep exactly one
-            // foreground location timer running at a time.
-            stop();
-            reportLocation();
-            timer = setInterval(reportLocation, 60_000);
-        };
-
-        start();
-        const subscription = AppState.addEventListener('change', (state) => {
-            if (state === 'active') start();
-            else stop();
-        });
-        return () => {
-            mounted = false;
-            stop();
-            subscription.remove();
-        };
-    }, []);
     return null;
 }
 
@@ -150,7 +101,6 @@ export default function AuthLayout() {
                     <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
                     <BottomSheetModalProvider>
                         <AndroidExitGuard />
-                        <FieldOfficerLocationReporter />
                         <Stack>
                             <Stack.Screen name="index" options={{ headerShown: false }} />
                             {/* Onboarding */}

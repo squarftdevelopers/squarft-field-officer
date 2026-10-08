@@ -14,7 +14,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE } from "../../components/MapView";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { projectsAPI } from "../../services/api";
 
