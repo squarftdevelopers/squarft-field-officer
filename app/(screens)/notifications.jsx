@@ -80,11 +80,9 @@ export default function Notifications() {
     const handleMarkAllRead = async () => {
         try {
             await notificationApi.markAllRead();
-            setNotifications((prev) => {
-                const updated = prev.map((item) => ({ ...item, watched: true }));
-                dispatch(syncNotifications(updated));
-                return updated;
-            });
+            const updated = notifications.map((item) => ({ ...item, watched: true }));
+            setNotifications(updated);
+            dispatch(syncNotifications(updated));
             setUnreadCount(0);
         } catch (err) {
             console.warn("Failed to mark all as read:", err.message);
@@ -95,13 +93,11 @@ export default function Notifications() {
         if (!item.watched) {
             try {
                 await notificationApi.markRead(null, item.id);
-                setNotifications((prev) =>
-                    {
-                        const updated = prev.map((n) => (n.id === item.id ? { ...n, watched: true } : n));
-                        dispatch(syncNotifications(updated));
-                        return updated;
-                    }
+                const updated = notifications.map((notification) =>
+                    notification.id === item.id ? { ...notification, watched: true } : notification
                 );
+                setNotifications(updated);
+                dispatch(syncNotifications(updated));
                 setUnreadCount((prev) => Math.max(0, prev - 1));
             } catch (err) {
                 console.warn("Failed to mark read:", err.message);

@@ -17,7 +17,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
-import ProjectLeadFormSheet from "../../components/ProjectLeadFormSheet";
 import { fetchDashboard } from "../../store/slices/dashboardSlice";
 import { fetchOfficerProfile } from "../../store/slices/profileSlice";
 import { leadsAPI } from "../../services/api";
@@ -160,7 +159,6 @@ function navigateToLocation({ lat, lng, address, label, meetingId, projectId }) 
 export default function Home() {
     const dispatch = useDispatch();
     const [activeTab, setActiveTab] = useState("meeting");
-    const [leadFormOpen, setLeadFormOpen] = useState(false);
     const projects = useSelector(selectProjects);
     const followUpItems = useSelector(selectAllProjectFollowUps);
     const meetingItems = useSelector(selectAllProjectMeetings);
@@ -172,8 +170,7 @@ export default function Home() {
     const isLoggedIn = useSelector((state) => state.auth.isLoggedIn);
     const apiMeetings = useSelector((state) => state.dashboard.tasks?.meetings ?? null);
     const apiFollowUps = useSelector((state) => state.dashboard.tasks?.follow_ups ?? null);
-    const { height, width } = useWindowDimensions();
-    const leadFormTranslateY = useRef(new Animated.Value(height)).current;
+    const { width } = useWindowDimensions();
     const notchWidth = Math.min(width * 0.25, 102);
     const notchHeight = 16;
 
@@ -227,12 +224,6 @@ export default function Home() {
               { value: projects.filter((p) => p.statusType === "live").length, label: "Live" },
           ];
 
-    const controlsTranslateY = leadFormTranslateY.interpolate({
-        inputRange: [0, Math.min(height, 260)],
-        outputRange: [-118, 0],
-        extrapolate: "clamp",
-    });
-
     const [refreshing, setRefreshing] = useState(false);
 
     const onRefresh = useCallback(async () => {
@@ -267,26 +258,6 @@ export default function Home() {
         const interval = setInterval(() => dispatch(fetchDashboard()), POLL_INTERVAL);
         return () => clearInterval(interval);
     }, [dispatch]);
-
-    useEffect(() => {
-        if (!leadFormOpen) leadFormTranslateY.setValue(height);
-    }, [height, leadFormOpen, leadFormTranslateY]);
-
-    const openLeadForm = () => {
-        setLeadFormOpen(true);
-        leadFormTranslateY.setValue(height);
-        requestAnimationFrame(() => {
-            Animated.spring(leadFormTranslateY, {
-                toValue: 0, useNativeDriver: true, damping: 25, stiffness: 185,
-            }).start();
-        });
-    };
-
-    const closeLeadForm = () => {
-        Animated.timing(leadFormTranslateY, {
-            toValue: height, duration: 230, useNativeDriver: true,
-        }).start(() => setLeadFormOpen(false));
-    };
 
     const markFollowUpDone = async (item) => {
         if (!item || !item.id || !item.projectId) {
@@ -387,10 +358,7 @@ export default function Home() {
                 )}
             </SafeAreaView>
 
-            <Animated.View
-                className="relative h-[82px] overflow-visible bg-[#4A43EC] px-7 pt-[27px]"
-                style={{ transform: [{ translateY: controlsTranslateY }] }}
-            >
+            <View className="relative h-[82px] overflow-visible bg-[#4A43EC] px-7 pt-[27px]">
                 <View className="z-10 flex-row items-center justify-between">
                     <TouchableOpacity
                         activeOpacity={0.8}
@@ -404,7 +372,7 @@ export default function Home() {
 
                     <TouchableOpacity
                         activeOpacity={0.8}
-                        onPress={openLeadForm}
+                        onPress={() => router.push('/new-acquisition')}
                         className="h-[44px] w-[44px] items-center justify-center rounded-[8px] bg-white"
                     >
                         <Ionicons name="add" size={27} color="#4A43EC" />
@@ -420,7 +388,7 @@ export default function Home() {
                         </Text>
                     </TouchableOpacity>
                 </View>
-            </Animated.View>
+            </View>
 
             <View className="relative flex-1 overflow-visible rounded-t-[20px] bg-white">
                 <View
@@ -581,12 +549,6 @@ export default function Home() {
                 </ScrollView>
             </View>
 
-            <ProjectLeadFormSheet
-                visible={leadFormOpen}
-                translateY={leadFormTranslateY}
-                screenHeight={height}
-                onClose={closeLeadForm}
-            />
         </View>
     );
 }

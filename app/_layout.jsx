@@ -110,6 +110,7 @@ export default function AuthLayout() {
                             <Stack.Screen name="(screens)" options={{ headerShown: false, animation: "none" }} />
                             <Stack.Screen name="projects/[id]" options={{ headerShown: false }} />
                             <Stack.Screen name="projects/navigate" options={{ headerShown: false }} />
+                            <Stack.Screen name="new-acquisition" options={{ headerShown: false }} />
                         </Stack>
                         {showAnimatedSplash && (
                             <AnimatedSplashScreen onFinish={() => setShowAnimatedSplash(false)} />

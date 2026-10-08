@@ -12,11 +12,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    Animated,
     Dimensions,
     Image,
     Modal,
-    PanResponder,
     Platform,
     Pressable,
     ScrollView,
@@ -362,7 +360,7 @@ function PriorityChip({ label, active, onPress }) {
     );
 }
 
-export default function ProjectLeadFormSheet({ visible, translateY, screenHeight, onClose }) {
+export default function ProjectLeadFormSheet({ onClose }) {
     const dispatch = useDispatch();
     const [currentStep, setCurrentStep] = useState(0);
     const [stepError, setStepError] = useState("");
@@ -895,50 +893,12 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
         scrollRef.current?.scrollTo?.({ y: 0, animated: false });
     }, [currentStep]);
 
-    const panResponder = useMemo(
-        () =>
-            PanResponder.create({
-                onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 8,
-                onPanResponderMove: (_, gestureState) => {
-                    translateY.setValue(Math.max(0, gestureState.dy));
-                },
-                onPanResponderRelease: (_, gestureState) => {
-                    if (gestureState.dy > 135 || gestureState.vy > 1.1) {
-                        onClose();
-                        return;
-                    }
-
-                    Animated.spring(translateY, {
-                        toValue: 0,
-                        useNativeDriver: true,
-                        damping: 24,
-                        stiffness: 190,
-                    }).start();
-                },
-            }),
-        [onClose, translateY]
-    );
-
-    if (!visible) return null;
-
     return (
-        <Modal
-            visible={visible}
-            animationType="none"
-            transparent={true}
-            onRequestClose={handleClose}
-        >
-            <Animated.View
-                className="absolute inset-0 z-50 bg-[#F8F9FE]"
-                style={{
-                    transform: [{ translateY }],
-                    minHeight: screenHeight,
-                }}
-            >
+        <View className="flex-1 bg-[#F8F9FE]">
             <StatusBar barStyle="light-content" />
             <View className="flex-1">
                 <SafeAreaView className="bg-[#4A43EC]" edges={["top"]}>
-                    <View className="bg-[#4A43EC] px-5 pb-8" {...panResponder.panHandlers}>
+                    <View className="bg-[#4A43EC] px-5 pb-8">
                         <View className="mt-2 mb-8 flex-row items-center justify-between">
                             <TouchableOpacity
                                 activeOpacity={0.78}
@@ -1769,7 +1729,6 @@ export default function ProjectLeadFormSheet({ visible, translateY, screenHeight
                     </ScrollView>
                 </SafeAreaView>
             </Modal>
-        </Animated.View>
-        </Modal>
+        </View>
     );
 }

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.0.107:3001';
+const FIELD_OFFICER_NOTIFICATIONS_PATH = '/api/field-officer/notifications';
 
 async function request(path, token, options = {}) {
   const authToken = token || await AsyncStorage.getItem('authToken');
@@ -15,7 +16,12 @@ async function request(path, token, options = {}) {
   });
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : {};
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`Notification request failed (${response.status})`);
+  }
 
   if (!response.ok) {
     throw new Error(data.message || 'Notification request failed');
@@ -27,31 +33,31 @@ async function request(path, token, options = {}) {
 export const notificationApi = {
   // In-App Notifications
   list: (token, page = 1, limit = 20) =>
-    request(`/api/v1/field-officer/notifications?page=${page}&limit=${limit}`, token),
+    request(`${FIELD_OFFICER_NOTIFICATIONS_PATH}?page=${page}&limit=${limit}`, token),
 
   getUnreadCount: (token) =>
-    request('/api/v1/field-officer/notifications/unread-count', token),
+    request(`${FIELD_OFFICER_NOTIFICATIONS_PATH}/unread-count`, token),
 
   markRead: (token, id) =>
-    request(`/api/v1/field-officer/notifications/${encodeURIComponent(id)}/read`, token, {
+    request(`${FIELD_OFFICER_NOTIFICATIONS_PATH}/${encodeURIComponent(id)}/read`, token, {
       method: 'PATCH',
     }),
 
   markAllRead: (token) =>
-    request('/api/v1/field-officer/notifications/read-all', token, {
+    request(`${FIELD_OFFICER_NOTIFICATIONS_PATH}/read-all`, token, {
       method: 'PATCH',
     }),
 
   // Push Tokens
   registerPushToken: (token, payload) =>
-    request('/api/v1/push-tokens/register', token, {
+    request(`${FIELD_OFFICER_NOTIFICATIONS_PATH}/device-tokens`, token, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
 
   unregisterPushToken: (token, payload) =>
-    request('/api/v1/push-tokens/register', token, {
-      method: 'DELETE',
+    request(`${FIELD_OFFICER_NOTIFICATIONS_PATH}/device-tokens/deactivate`, token, {
+      method: 'PATCH',
       body: JSON.stringify(payload),
     }),
 };

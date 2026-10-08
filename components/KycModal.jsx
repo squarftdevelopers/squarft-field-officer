@@ -14,16 +14,18 @@ export default function KycModal() {
     const [kyc, setKyc] = useState(null);
     const [checked, setChecked] = useState(false);
     const [loading, setLoading] = useState(false);
-    // Redux is updated immediately by the KYC submission screen. Prefer it so
-    // the sheet reflects a new submission without waiting for an app restart.
-    const status = String(kycStatus || kyc?.verification_status || 'missing').toLowerCase();
+    // Prefer the freshly fetched record once available. Redux starts as
+    // "missing", so reading it first can flash the completion sheet for one
+    // render before the server result is dispatched.
+    const status = String(kyc?.verification_status || kycStatus || 'missing').toLowerCase();
     const submitted = ['pending', 'submitted', 'under_review', 'in_review'].includes(status);
     const rejected = status === 'rejected';
     const approved = checked && ['approved', 'verified'].includes(status);
     const authRoute = pathname === '/' || pathname.includes('(auth)') || pathname.includes('onboarding')
         || pathname.includes('login') || pathname.includes('register') || pathname.includes('otp-verification')
         || pathname.includes('location-permission');
-    const visible = authChecked && isLoggedIn && !approved && !authRoute && !pathname.includes('kyc');
+    const isKycRoute = pathname.includes('kyc');
+    const visible = authChecked && isLoggedIn && checked && !approved && !authRoute && !isKycRoute;
 
     const fetchKyc = useCallback(async () => {
         if (loading) return;
@@ -52,8 +54,18 @@ export default function KycModal() {
     }, [mobile]);
 
     useEffect(() => {
-        if (authChecked && isLoggedIn && !authRoute && !pathname.includes('kyc') && !checked && !loading) fetchKyc();
-    }, [authChecked, authRoute, checked, fetchKyc, isLoggedIn, loading, pathname]);
+        // The tabs can remain mounted behind the KYC screen. Invalidate the
+        // cached result there so returning home always performs a fresh check
+        // before the sheet is allowed to appear.
+        if (authRoute || isKycRoute) {
+            setKyc(null);
+            setChecked(false);
+        }
+    }, [authRoute, isKycRoute]);
+
+    useEffect(() => {
+        if (authChecked && isLoggedIn && !authRoute && !isKycRoute && !checked && !loading) fetchKyc();
+    }, [authChecked, authRoute, checked, fetchKyc, isKycRoute, isLoggedIn, loading]);
 
     const handleAction = async () => {
         if (submitted) return fetchKyc();

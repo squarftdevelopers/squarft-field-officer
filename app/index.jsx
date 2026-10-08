@@ -61,13 +61,20 @@ export default function Index() {
     }, [dispatch, router]);
 
     return (
-        <View className="flex-1 bg-black">
+        <View style={styles.container}>
             <StatusBar hidden />
             <Image
                 source={require("../assets/images/splash-mobile.gif")}
                 style={StyleSheet.absoluteFill}
-                contentFit="cover"
+                contentFit="contain"
             />
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: "#4848ff",
+    },
+});
