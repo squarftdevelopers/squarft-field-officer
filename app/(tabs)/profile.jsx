@@ -8,7 +8,6 @@ import {
     ActivityIndicator,
     Alert,
     Image,
-    Linking,
     RefreshControl,
     ScrollView,
     Text,
@@ -108,25 +107,9 @@ function SectionCard({ title, children }) {
     );
 }
 
-async function callPhone(phone) {
-    if (!phone) {
-        Alert.alert("Phone unavailable", "No reporting manager phone number is available.");
-        return;
-    }
-
-    try {
-        const url = `tel:${phone}`;
-        const supported = await Linking.canOpenURL(url);
-        if (!supported) throw new Error("Phone calls are unavailable");
-        await Linking.openURL(url);
-    } catch {
-        Alert.alert("Unable to call", "Calling is not available on this device.");
-    }
-}
-
 export default function Profile() {
     const dispatch = useDispatch();
-    const { profile, performanceThisMonth, reportingManager, loading, error } = useSelector((state) => state.profile);
+    const { profile, performanceThisMonth, loading, error } = useSelector((state) => state.profile);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const [deletingAccount, setDeletingAccount] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
@@ -420,37 +403,6 @@ export default function Profile() {
                             </View>
                             <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
                         </TouchableOpacity>
-
-                        <SectionCard title="Reporting Manager">
-                            {reportingManager ? (
-                                <View className="flex-row items-center py-1">
-                                    <View className="h-11 w-11 items-center justify-center rounded-full bg-[#EEECFF]">
-                                        <Text className="text-[12px] font-lato-bold text-[#4A43EC]">
-                                            {getInitials(reportingManager.name)}
-                                        </Text>
-                                    </View>
-                                    <View className="ml-3 flex-1">
-                                        <Text className="text-[14px] font-lato-bold text-[#111827]">{reportingManager.name}</Text>
-                                        <Text className="mt-0.5 text-[11px] text-[#64748B]">
-                                            {[reportingManager.role_display, reportingManager.location].filter(Boolean).join(" · ")}
-                                        </Text>
-                                    </View>
-                                    <TouchableOpacity
-                                        onPress={() => callPhone(reportingManager.phone)}
-                                        disabled={!reportingManager.phone}
-                                        className="h-10 w-10 items-center justify-center rounded-xl border border-[#DCD8FF]"
-                                        style={{ opacity: reportingManager.phone ? 1 : 0.4 }}
-                                    >
-                                        <Ionicons name="call-outline" size={17} color="#4A43EC" />
-                                    </TouchableOpacity>
-                                </View>
-                            ) : (
-                                <View className="flex-row items-center py-2">
-                                    <Ionicons name="information-circle-outline" size={19} color="#64748B" />
-                                    <Text className="ml-2 text-[12px] text-[#64748B]">No reporting manager is assigned yet.</Text>
-                                </View>
-                            )}
-                        </SectionCard>
 
                         <SectionCard title="Quick Links">
                             {profileLinks.map((link, index) => (

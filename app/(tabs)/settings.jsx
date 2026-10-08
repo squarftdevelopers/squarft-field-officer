@@ -10,7 +10,7 @@ import { setLoggedIn, logout } from "../../store/slices/authSlice";
 
 export default function Settings() {
     const dispatch = useDispatch();
-    const { profile, performanceThisMonth, reportingManager, loading } = useSelector((state) => state.profile);
+    const { profile, performanceThisMonth, loading } = useSelector((state) => state.profile);
     const [deletingAccount, setDeletingAccount] = useState(false);
 
     useEffect(() => {
@@ -123,24 +123,6 @@ export default function Settings() {
                                 <Text className="text-[12px] text-[#6B7280]">Projects Live</Text>
                             </View>
                         </View>
-                    </View>
-                )}
-
-                {/* Reporting Manager */}
-                {reportingManager && (
-                    <View className="mx-4 mt-3 rounded-[16px] bg-white p-4">
-                        <Text className="mb-3 text-[16px] font-lato-bold text-black">Reporting Manager</Text>
-                        <Text className="text-[15px] font-lato-bold text-black">{reportingManager.name}</Text>
-                        <Text className="mt-0.5 text-[13px] text-[#6B7280]">{reportingManager.role_display}</Text>
-                        {reportingManager.location && (
-                            <Text className="mt-1 text-[12px] text-[#6B7280]">{reportingManager.location}</Text>
-                        )}
-                        {reportingManager.phone && (
-                            <TouchableOpacity className="mt-2 flex-row items-center">
-                                <Ionicons name="call-outline" size={16} color="#4A43EC" />
-                                <Text className="ml-1 text-[13px] text-[#4A43EC]">{reportingManager.phone}</Text>
-                            </TouchableOpacity>
-                        )}
                     </View>
                 )}
 
