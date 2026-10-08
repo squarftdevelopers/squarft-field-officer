@@ -342,11 +342,11 @@ export default function Home() {
                         </View>
 
                         <View
-                            className="mt-5 flex-row justify-between rounded-[15px] bg-white px-5 py-3.5"
-                            style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.06, shadowRadius: 16.5, elevation: 4 }}
+                            className="mt-5 flex-row rounded-[15px] bg-white px-3 py-3.5"
+                            style={{ gap: 6, shadowColor: "#000", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.06, shadowRadius: 16.5, elevation: 4 }}
                         >
                             {stats.map((item) => (
-                                <View key={item.label} className="h-[75px] w-[75px] items-center justify-center rounded-[15px] bg-[#EBF1FF]">
+                                <View key={item.label} className="h-[75px] min-w-0 flex-1 items-center justify-center rounded-[15px] bg-[#EBF1FF] px-1">
                                     <Text className="text-[13px] font-semibold text-[#333333]">{item.value}</Text>
                                     <Text className="mt-2 text-center text-[10px] font-semibold text-black" numberOfLines={1} adjustsFontSizeToFit>
                                         {item.label}
