@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { kycAPI } from '../services/api';
-import { setKycState } from '../store/slices/authSlice';
+import { authAPI, kycAPI } from '../services/api';
+import { logout, setKycState } from '../store/slices/authSlice';
+import { clearOfficerProfile } from '../store/slices/profileSlice';
 
 export default function KycModal() {
     const insets = useSafeAreaInsets();
@@ -72,6 +73,13 @@ export default function KycModal() {
         router.push('/(auth)/kyc');
     };
 
+    const handleLogout = async () => {
+        await authAPI.logout();
+        dispatch(clearOfficerProfile());
+        dispatch(logout());
+        router.replace('/(auth)/login');
+    };
+
     return (
         <Modal
             visible={visible}
@@ -119,12 +127,15 @@ export default function KycModal() {
                                 : 'Complete your KYC to continue using the field officer dashboard.'}
                     </Text>
                 </View>
-                <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 16) + 8 }]}>
+                <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
                     <Pressable style={[styles.button, rejected && styles.rejectedButton, loading && styles.disabled]}
                         onPress={handleAction} disabled={loading} android_ripple={{ color: 'rgba(255,255,255,0.3)' }}>
                         {loading ? <ActivityIndicator size="small" color="#FFFFFF" /> : (
                             <Text style={styles.buttonText}>{submitted ? 'Refresh Status' : rejected ? 'Re-upload Documents' : 'Complete KYC'}</Text>
                         )}
+                    </Pressable>
+                    <Pressable style={styles.logoutButton} onPress={handleLogout} hitSlop={8}>
+                        <Text style={styles.logoutText}>Log out</Text>
                     </Pressable>
                 </View>
             </View>
@@ -150,4 +161,6 @@ const styles = StyleSheet.create({
     rejectedButton: { backgroundColor: '#DC2626', shadowColor: '#DC2626' },
     disabled: { opacity: 0.85 },
     buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', fontFamily: 'Lato-Bold' },
+    logoutButton: { alignSelf: 'center', marginTop: 3, paddingHorizontal: 12, paddingVertical: 6 },
+    logoutText: { color: '#DC2626', fontSize: 12, fontWeight: '600', fontFamily: 'Lato-Bold' },
 });

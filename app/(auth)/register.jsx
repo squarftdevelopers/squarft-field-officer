@@ -1,4 +1,15 @@
-import { Text, View, TextInput, TouchableOpacity, Image, Alert, ScrollView, ActivityIndicator } from "react-native";
+import {
+    Text,
+    View,
+    TextInput,
+    TouchableOpacity,
+    Image,
+    Alert,
+    ScrollView,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+} from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Link, router } from "expo-router";
 import { useState } from "react";
@@ -66,12 +77,17 @@ export default function Register() {
                 </Link>
             </View>
 
-            <ScrollView
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
                 className="flex-1 bg-white"
-                contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 32 }}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
             >
+                <ScrollView
+                    className="flex-1"
+                    contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 32 }}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
+                    showsVerticalScrollIndicator={false}
+                >
 
                 <Text className="text-gray-500 text-[13px] mb-1.5">First Name</Text>
                 <View className="border border-gray-200 rounded-xl px-4 py-2 mb-5">
@@ -144,7 +160,8 @@ export default function Register() {
                     </Text>
                 </View>
 
-            </ScrollView>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </View>
     );
 }
