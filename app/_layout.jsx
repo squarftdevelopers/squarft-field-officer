@@ -21,6 +21,7 @@ import {
 
 import { restoreAuthToken } from "../services/api";
 import { registerForPushNotificationsAsync } from "../services/pushNotifications";
+import { resolveNotificationRoute } from "../services/notificationNavigation";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -76,8 +77,10 @@ export default function AuthLayout() {
 
     useEffect(() => {
         const openNotificationRoute = (response) => {
-            const route = response?.notification?.request?.content?.data?.route;
-            if (typeof route === "string" && route.startsWith("/")) {
+            const route = resolveNotificationRoute(
+                response?.notification?.request?.content?.data?.route
+            );
+            if (route) {
                 router.push(route);
             }
         };

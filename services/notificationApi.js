@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { resolveNotificationRoute } from './notificationNavigation';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.0.107:3001';
 const FIELD_OFFICER_NOTIFICATIONS_PATH = '/api/field-officer/notifications';
@@ -79,7 +80,7 @@ export const mapNotificationResponse = (response) => {
     title: notification.title,
     description: notification.body,
     watched: String(notification.status).toUpperCase() === 'READ',
-    target: notification.route || null,
+    target: resolveNotificationRoute(notification.route),
     type: notificationTypeByEvent(notification.eventKey),
     time: notification.createdAt
       ? new Date(notification.createdAt).toLocaleString([], {
