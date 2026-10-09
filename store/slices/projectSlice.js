@@ -9,6 +9,8 @@ const initialState = {
         city: '',
         state: '',
         pincode: '',
+        latitude: null,
+        longitude: null,
         salesOfficerName: '',
         salesOfficerContact: '',
         responsiblePersonName: '',

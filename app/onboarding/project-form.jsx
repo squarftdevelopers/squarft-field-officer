@@ -281,6 +281,8 @@ export default function AddProject() {
                     city: existingProject.city || "",
                     state: existingProject.state || "",
                     pincode: existingProject.pincode || "",
+                    latitude: existingProject.latitude ?? null,
+                    longitude: existingProject.longitude ?? null,
                     salesOfficerName: existingProject.contactPerson || "",
                     salesOfficerContact: (existingProject.phoneNumber || "").replace(/^\+91/, ""),
                     responsiblePersonName: existingProject.responsiblePerson || "",
@@ -374,6 +376,8 @@ export default function AddProject() {
                                     city: lead.city || "",
                                     state: lead.state || "",
                                     pincode: lead.pincode || "",
+                                    latitude: lead.latitude ?? null,
+                                    longitude: lead.longitude ?? null,
                                     salesOfficerName: lead.contact_person || "",
                                     salesOfficerContact: (lead.contact_number || lead.phoneNumber || "").replace(/^\+91/, ""),
                                     responsiblePersonName: lead.responsible_person_name || "",
@@ -442,6 +446,12 @@ export default function AddProject() {
 
         if (!values.location || values.location.trim().length === 0) {
             errors.location = 'Location is required';
+        }
+
+        if (values.latitude == null || values.longitude == null || values.latitude === '' || values.longitude === '' ||
+            !Number.isFinite(Number(values.latitude)) || !Number.isFinite(Number(values.longitude)) ||
+            Math.abs(Number(values.latitude)) > 90 || Math.abs(Number(values.longitude)) > 180) {
+            errors.location = 'Select and confirm the project location on the map';
         }
 
         if (!values.city || values.city.trim().length === 0) {
@@ -533,6 +543,8 @@ export default function AddProject() {
                 city: s1.city || '',
                 state: s1.state || '',
                 pincode: s1.pincode || '',
+                latitude: s1.latitude ?? null,
+                longitude: s1.longitude ?? null,
                 salesOfficerName: s1.sales_officer_name || '',
                 salesOfficerContact: s1.sales_officer_contact || '',
                 responsiblePersonName: s1.responsible_person_name || '',
@@ -992,6 +1004,8 @@ export default function AddProject() {
                         city: step1.city,
                         state: step1.state,
                         pincode: step1.pincode,
+                        latitude: step1.latitude,
+                        longitude: step1.longitude,
                         sales_officer_name: step1.salesOfficerName,
                         sales_officer_contact: step1.salesOfficerContact,
                         responsible_person_name: step1.responsiblePersonName,
@@ -1015,6 +1029,8 @@ export default function AddProject() {
                     city: step1.city,
                     state: step1.state,
                     pincode: step1.pincode,
+                    latitude: step1.latitude,
+                    longitude: step1.longitude,
                     sales_officer_name: step1.salesOfficerName,
                     sales_officer_contact: step1.salesOfficerContact,
                     responsible_person_name: step1.responsiblePersonName,
@@ -1849,6 +1865,8 @@ function Step1({ errors = {}, setErrors }) {
         if (tempAddressDetails.city) updateField('city', tempAddressDetails.city);
         if (tempAddressDetails.state) updateField('state', tempAddressDetails.state);
         if (tempAddressDetails.pincode) updateField('pincode', tempAddressDetails.pincode);
+        updateField('latitude', markerCoordinate.latitude);
+        updateField('longitude', markerCoordinate.longitude);
         setMapModalVisible(false);
     };
 
@@ -1971,7 +1989,11 @@ function Step1({ errors = {}, setErrors }) {
                         placeholder="Address & Landmark"
                         placeholderTextColor="#9CA3AF"
                         value={step1.location}
-                        onChangeText={(v) => updateField('location', v)}
+                        onChangeText={(v) => {
+                            updateField('location', v);
+                            updateField('latitude', null);
+                            updateField('longitude', null);
+                        }}
                         style={{ paddingVertical: 0, textAlignVertical: 'center', includeFontPadding: false }}
                     />
                     <TouchableOpacity
