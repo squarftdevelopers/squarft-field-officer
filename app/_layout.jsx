@@ -5,8 +5,8 @@ import * as Notifications from "expo-notifications";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
-import { Provider } from 'react-redux';
-import { Alert, BackHandler, Platform } from "react-native";
+import { Provider, useDispatch, useSelector } from 'react-redux';
+import { Alert, AppState, BackHandler, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "../global.css";
 import { store } from '../store/store';
@@ -22,6 +22,8 @@ import {
 import { restoreAuthToken } from "../services/api";
 import { registerForPushNotificationsAsync } from "../services/pushNotifications";
 import { resolveNotificationRoute } from "../services/notificationNavigation";
+import { notificationApi, mapNotificationResponse } from "../services/notificationApi";
+import { setNotifications } from "../store/slices/notificationSlice";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -47,6 +49,32 @@ function AndroidExitGuard() {
         const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
         return () => subscription.remove();
     }, [pathname, router]);
+
+    return null;
+}
+
+function NotificationBadgeSync() {
+    const dispatch = useDispatch();
+    const isLoggedIn = useSelector((state) => state.auth.isLoggedIn);
+
+    useEffect(() => {
+        if (!isLoggedIn) return undefined;
+        let active = true;
+        const sync = () => notificationApi.list(null, 1, 100)
+            .then((response) => active && dispatch(setNotifications(mapNotificationResponse(response))))
+            .catch((error) => console.warn("Notification badge sync failed:", error.message));
+
+        sync();
+        const received = Notifications.addNotificationReceivedListener(sync);
+        const appState = AppState.addEventListener("change", (state) => {
+            if (state === "active") sync();
+        });
+        return () => {
+            active = false;
+            received.remove();
+            appState.remove();
+        };
+    }, [dispatch, isLoggedIn]);
 
     return null;
 }
@@ -104,6 +132,7 @@ export default function AuthLayout() {
                     <StatusBar style="dark" backgroundColor="transparent" translucent={true} />
                     <BottomSheetModalProvider>
                         <AndroidExitGuard />
+                        <NotificationBadgeSync />
                         <Stack>
                             <Stack.Screen name="index" options={{ headerShown: false }} />
                             {/* Onboarding */}
