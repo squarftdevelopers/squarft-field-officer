@@ -55,22 +55,7 @@ export default function Login() {
             router.push("/otp-verification");
         } catch (error) {
             const message = error.response?.data?.message || error.message || "Failed to send OTP";
-            const accountMissing = error.response?.status === 404
-                || message.toLowerCase().includes("no field officer account")
-                || message.toLowerCase().includes("no account found");
-
-            if (accountMissing) {
-                Alert.alert(
-                    "Account Not Found",
-                    "No field officer account was found with this phone number. Would you like to register?",
-                    [
-                        { text: "Register", onPress: () => router.replace("/register") },
-                        { text: "Cancel", style: "cancel" },
-                    ],
-                );
-            } else {
-                Alert.alert("Could Not Send OTP", message);
-            }
+            Alert.alert("Could Not Send OTP", message);
         } finally {
             setLoading(false);
         }
