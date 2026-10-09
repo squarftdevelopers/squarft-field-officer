@@ -371,6 +371,8 @@ export default function ProjectLeadFormSheet({ onClose }) {
     const [developerAccounts, setDeveloperAccounts] = useState([]);
     const [searching, setSearching] = useState(false);
     const [otpState, setOtpState] = useState({ builder: {}, responsible: {} });
+    const [responsibleAccount, setResponsibleAccount] = useState(null);
+    const responsibleLookupId = useRef(0);
 
     const sendContactOtp = async (kind, phone) => {
         if (!/^\d{10}$/.test(String(phone || "").replace(/\D/g, "").slice(-10))) {
@@ -507,6 +509,31 @@ export default function ProjectLeadFormSheet({ onClose }) {
     const setField = (field) => (value) => {
         setStepError("");
         setForm((current) => ({ ...current, [field]: value }));
+    };
+
+    const handleResponsiblePhoneChange = async (value) => {
+        const digits = value.replace(/\D/g, "").slice(-10);
+        const lookupId = responsibleLookupId.current + 1;
+        responsibleLookupId.current = lookupId;
+        setStepError("");
+        setResponsibleAccount(null);
+        setForm((current) => ({ ...current, responsibleMobile: digits }));
+        setOtpState((s) => ({ ...s, responsible: {} }));
+
+        if (digits.length !== 10) return;
+        try {
+            const res = await projectMembersAPI.getAssignableUsers("project_developer", digits);
+            const account = (res.data?.data || []).find(
+                (user) => String(user.phone || "").replace(/\D/g, "").slice(-10) === digits
+            );
+            if (!account || responsibleLookupId.current !== lookupId) return;
+
+            const accountName = [account.first_name, account.last_name].filter(Boolean).join(" ").trim();
+            setResponsibleAccount(account);
+            setForm((current) => ({ ...current, responsiblePerson: accountName }));
+        } catch (error) {
+            console.log("Error checking responsible person account:", error.message);
+        }
     };
 
     const confirmMapAddress = (selection) => {
@@ -654,6 +681,7 @@ export default function ProjectLeadFormSheet({ onClose }) {
         setCurrentStep(0);
         setStepError("");
         setOtpState({ builder: {}, responsible: {} });
+        setResponsibleAccount(null);
         onClose();
     };
 
@@ -783,6 +811,7 @@ export default function ProjectLeadFormSheet({ onClose }) {
 
             // Reset form
             setForm(resetLeadForm());
+            setResponsibleAccount(null);
             setOtpState({ builder: {}, responsible: {} });
             setCategory("Residential");
             setProjectType("");
@@ -1107,18 +1136,21 @@ export default function ProjectLeadFormSheet({ onClose }) {
                                 <TextInput
                                     value={form.responsiblePerson}
                                     onChangeText={setField("responsiblePerson")}
+                                    editable={!responsibleAccount}
                                     placeholder="Full name"
                                     placeholderTextColor="#9CA3AF"
-                                    className="h-12 rounded-xl border border-gray-200 bg-white px-4 text-[13px]"
+                                    className={`h-12 rounded-xl border border-gray-200 px-4 text-[13px] ${responsibleAccount ? "bg-gray-100 text-gray-600" : "bg-white"}`}
                                 />
+                                {responsibleAccount && (
+                                    <Text className="mt-1.5 text-[11px] font-lato-bold text-[#4A43EC]">
+                                        Existing Project Panel account found. The registered name is used automatically.
+                                    </Text>
+                                )}
                                 <View className="mt-2 h-12 flex-row items-center rounded-xl border border-gray-200 bg-white px-4">
                                     <Text className="mr-2 border-r border-gray-200 pr-3 text-[13px] font-lato-bold text-gray-700">+91</Text>
                                     <TextInput
                                         value={form.responsibleMobile}
-                                        onChangeText={(value) => {
-                                            setField("responsibleMobile")(value.replace(/\D/g, "").slice(-10));
-                                            setOtpState((s) => ({ ...s, responsible: {} }));
-                                        }}
+                                        onChangeText={handleResponsiblePhoneChange}
                                         placeholder="10-digit mobile number"
                                         placeholderTextColor="#9CA3AF"
                                         keyboardType="phone-pad"
