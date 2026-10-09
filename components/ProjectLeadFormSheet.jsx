@@ -737,12 +737,37 @@ export default function ProjectLeadFormSheet({ onClose }) {
             remarks: form.builderNotes.trim() || null,
             scheduled_time,
             lead_temperature: priority.toLowerCase(),
-            voice_note_url: voiceNoteUri || null,
+            voice_note_duration_ms: voiceNoteUri ? Math.round(voiceNoteDuration || 0) : null,
         };
 
         try {
             setSaving(true);
-            const response = await leadsAPI.createLead(payload);
+            let requestPayload = payload;
+            if (voiceNoteUri) {
+                const extension = voiceNoteUri.split(".").pop()?.split(/[?#]/)[0]?.toLowerCase() || "m4a";
+                const mimeTypes = {
+                    aac: "audio/aac",
+                    amr: "audio/amr",
+                    mp3: "audio/mpeg",
+                    m4a: "audio/mp4",
+                    mp4: "audio/mp4",
+                    ogg: "audio/ogg",
+                    wav: "audio/wav",
+                    webm: "audio/webm",
+                };
+                const formData = new FormData();
+                Object.entries(payload).forEach(([key, value]) => {
+                    if (value === null || value === undefined) return;
+                    formData.append(key, typeof value === "object" ? JSON.stringify(value) : String(value));
+                });
+                formData.append("voice_note", {
+                    uri: voiceNoteUri,
+                    name: `acquisition-voice-note.${extension}`,
+                    type: mimeTypes[extension] || "audio/mp4",
+                });
+                requestPayload = formData;
+            }
+            const response = await leadsAPI.createLead(requestPayload);
 
             // Optimistic local Redux update for instant UI
             const newFollowUpId = String(Date.now());
